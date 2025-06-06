@@ -1,0 +1,28 @@
+#Server Configuration
+Server:
+  address: "0.0.0.0:8000"
+
+Logger:
+  level: "info"
+  is_development: true
+  filepath: "./logs/logs_%Y%m%d%H%M.txt"
+
+Auth:
+  secret: "RWAjFqBWioBhkRvTDJDfuyJO7lONAET3onIz6wSWwaY="
+  issuer: "Server"
+  audience: "App"
+  token_ttl: 15 #in minutes
+  encryption_key: "ASFKQIasdriPOWlsa123432"
+  valid_users:
+    - devadiga.rohit
+
+Database:
+  host: localhost
+  port: 5432
+  user: postgres
+  password: admin
+  database: blogs
+  ssl_mode: disable
+  max_connections: 100
+  max_connection_idle_time: 10 #in minutes
+  max_connection_lifetime: 10 #in minutes

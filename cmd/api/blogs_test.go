@@ -48,6 +48,7 @@ func (m *MockBlogsService) DeletePost(ctx context.Context, addPost *services.Del
 func setupBlogsTestServer(blogs services.IBlog) *fiber.App {
 	mockService := &services.Service{
 		Blog: blogs,
+		Auth: &MockAuthService{ShouldValidate: true},
 	}
 
 	validatorV10 := validator.NewValidator()
@@ -58,6 +59,7 @@ func setupBlogsTestServer(blogs services.IBlog) *fiber.App {
 		Validator: validatorV10,
 		Services:  mockService,
 	}
+	server.Router.Use(server.validateAuth)
 	server.Router.Get(blogUrl, server.postsGet)
 	server.Router.Get(blogUrlWithId, server.postsGet)
 	server.Router.Post(blogUrl, server.postAdd)
@@ -66,16 +68,34 @@ func setupBlogsTestServer(blogs services.IBlog) *fiber.App {
 	return server.Router
 }
 
-func TestPostAdd_Success(t *testing.T) {
-	mockService := &MockBlogsService{
-		AddPostError: nil,
+func buildRequest(method, url string, body any) *http.Request {
+	var buf bytes.Buffer
+	switch b := body.(type) {
+	case string:
+		buf = *bytes.NewBuffer([]byte(b))
+	default:
+		err := json.NewEncoder(&buf).Encode(b)
+		if err != nil {
+			return nil
+		}
 	}
+	req := httptest.NewRequest(method, url, &buf)
+	req.Header.Set("Authorization", "Bearer token")
+	req.Header.Set("Content-Type", "application/json")
+	return req
+}
 
-	app := setupBlogsTestServer(mockService)
+func TestPostAdd(t *testing.T) {
+	type testCase struct {
+		name           string
+		requestBody    any
+		mockService    *MockBlogsService
+		expectedStatus int
+	}
 
 	sampleText := "sample"
 	sampleBool := true
-	body := AddPostRequest{
+	validBody := AddPostRequest{
 		Title:       &sampleText,
 		Description: &sampleText,
 		Slug:        &sampleText,
@@ -85,71 +105,148 @@ func TestPostAdd_Success(t *testing.T) {
 		IsPublished: &sampleBool,
 	}
 
-	payload, _ := json.Marshal(body)
-
-	req := httptest.NewRequest(http.MethodPost, blogUrl, bytes.NewReader(payload))
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := app.Test(req)
-
-	assert.NoError(t, err)
-	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
-}
-
-func TestPostAdd_InvalidRequest(t *testing.T) {
-	mockService := &MockBlogsService{
-		AddPostError: nil,
+	tests := []testCase{
+		{
+			name:           "Success",
+			requestBody:    validBody,
+			mockService:    &MockBlogsService{},
+			expectedStatus: fiber.StatusOK,
+		},
+		{
+			name:           "Invalid JSON",
+			requestBody:    "invalid-json",
+			mockService:    &MockBlogsService{},
+			expectedStatus: fiber.StatusBadRequest,
+		},
+		{
+			name: "Validation Error",
+			requestBody: AddPostRequest{
+				// missing Title
+				Description: &sampleText,
+				Slug:        &sampleText,
+				Content:     &sampleText,
+				AuthorName:  &sampleText,
+				Tags:        &[]string{},
+				IsPublished: &sampleBool,
+			},
+			mockService:    &MockBlogsService{},
+			expectedStatus: fiber.StatusBadRequest,
+		},
+		{
+			name:           "Slug Already Exists",
+			requestBody:    validBody,
+			mockService:    &MockBlogsService{AddPostError: store.ErrSlugAlreadyExists},
+			expectedStatus: fiber.StatusConflict,
+		},
+		{
+			name:           "Internal Server Error",
+			requestBody:    validBody,
+			mockService:    &MockBlogsService{AddPostError: errors.New("fail")},
+			expectedStatus: fiber.StatusInternalServerError,
+		},
 	}
 
-	app := setupBlogsTestServer(mockService)
-	payload, _ := json.Marshal(`body`)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			app := setupBlogsTestServer(tc.mockService)
 
-	req := httptest.NewRequest(http.MethodPost, blogUrl, bytes.NewReader(payload))
-	req.Header.Set("Content-Type", "application/json")
+			req := buildRequest(http.MethodPost, blogUrl, tc.requestBody)
 
-	resp, err := app.Test(req)
+			resp, err := app.Test(req)
 
-	assert.NoError(t, err)
-	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
+			assert.NoError(t, err)
+			assert.Equal(t, tc.expectedStatus, resp.StatusCode)
+		})
+	}
 }
 
-func TestPostAdd_ValidationError(t *testing.T) {
-	mockService := &MockBlogsService{
-		AddPostError: nil,
+func TestPostGet(t *testing.T) {
+	type testCase struct {
+		name           string
+		url            string
+		mockService    *MockBlogsService
+		expectedStatus int
+		expectData     bool
 	}
 
-	app := setupBlogsTestServer(mockService)
+	sampleId := 1
+	sampleTitle := "Gaming"
+	samplePosts := []store.Post{{Title: sampleTitle}}
+
+	tests := []testCase{
+		{
+			name:           "WithPostId_Success",
+			url:            fmt.Sprintf("%s/%d", blogUrl, sampleId),
+			mockService:    &MockBlogsService{GetPostsData: samplePosts},
+			expectedStatus: fiber.StatusOK,
+			expectData:     true,
+		},
+		{
+			name:           "WithoutPostId_Success",
+			url:            blogUrl,
+			mockService:    &MockBlogsService{GetPostsData: samplePosts},
+			expectedStatus: fiber.StatusOK,
+			expectData:     true,
+		},
+		{
+			name:           "BadParams",
+			url:            fmt.Sprintf("%s/%s", blogUrl, "s"), // non-int
+			mockService:    &MockBlogsService{},
+			expectedStatus: fiber.StatusBadRequest,
+		},
+		{
+			name:           "PostDoesNotExist",
+			url:            fmt.Sprintf("%s/%d", blogUrl, sampleId),
+			mockService:    &MockBlogsService{GetPostsError: store.ErrPostDoesNotExist},
+			expectedStatus: fiber.StatusNotFound,
+		},
+		{
+			name:           "InternalError_WithoutId",
+			url:            blogUrl,
+			mockService:    &MockBlogsService{GetPostsError: errors.New("internal error")},
+			expectedStatus: fiber.StatusInternalServerError,
+		},
+		{
+			name:           "InternalError_WithId",
+			url:            fmt.Sprintf("%s/%d", blogUrl, sampleId),
+			mockService:    &MockBlogsService{GetPostsError: errors.New("internal error")},
+			expectedStatus: fiber.StatusInternalServerError,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			app := setupBlogsTestServer(tc.mockService)
+
+			req := buildRequest(http.MethodGet, tc.url, nil)
+
+			resp, err := app.Test(req)
+
+			assert.NoError(t, err)
+			assert.Equal(t, tc.expectedStatus, resp.StatusCode)
+
+			if tc.expectData && resp.StatusCode == fiber.StatusOK {
+				var data GetPostsWrapperResponse
+				err := json.NewDecoder(resp.Body).Decode(&data)
+				assert.NoError(t, err)
+				assert.NotEmpty(t, data.Data)
+			}
+		})
+	}
+}
+
+func TestPostUpdate(t *testing.T) {
+	type testCase struct {
+		name           string
+		postId         interface{} // can be int or string for URL param test
+		body           any
+		mockService    *MockBlogsService
+		expectedStatus int
+	}
+
 	sampleText := "sample"
 	sampleBool := true
-	body := AddPostRequest{
-		Description: &sampleText,
-		Slug:        &sampleText,
-		Content:     &sampleText,
-		AuthorName:  &sampleText,
-		Tags:        &[]string{},
-		IsPublished: &sampleBool,
-	}
-
-	payload, _ := json.Marshal(body)
-
-	req := httptest.NewRequest(http.MethodPost, blogUrl, bytes.NewReader(payload))
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := app.Test(req)
-
-	assert.NoError(t, err)
-	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
-}
-
-func TestPostAdd_SlugAlreadyExists(t *testing.T) {
-	mockService := &MockBlogsService{
-		AddPostError: store.ErrSlugAlreadyExists,
-	}
-
-	app := setupBlogsTestServer(mockService)
-	sampleText := "sample"
-	sampleBool := true
-	body := AddPostRequest{
+	validBody := UpdatePostRequestBody{
 		Title:       &sampleText,
 		Description: &sampleText,
 		Slug:        &sampleText,
@@ -159,409 +256,129 @@ func TestPostAdd_SlugAlreadyExists(t *testing.T) {
 		IsPublished: &sampleBool,
 	}
 
-	payload, _ := json.Marshal(body)
-
-	req := httptest.NewRequest(http.MethodPost, blogUrl, bytes.NewReader(payload))
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := app.Test(req)
-
-	assert.NoError(t, err)
-	assert.Equal(t, fiber.StatusConflict, resp.StatusCode)
-}
-
-func TestPostAdd_InternalServerError(t *testing.T) {
-	mockService := &MockBlogsService{
-		AddPostError: errors.New("internal server error"),
-	}
-
-	app := setupBlogsTestServer(mockService)
-	sampleText := "sample"
-	sampleBool := true
-	body := AddPostRequest{
-		Title:       &sampleText,
+	validationErrorBody := UpdatePostRequestBody{
 		Description: &sampleText,
 		Slug:        &sampleText,
 		Content:     &sampleText,
-		AuthorName:  &sampleText,
+		AuthorName:  func(s string) *string { return &s }("123"),
 		Tags:        &[]string{},
 		IsPublished: &sampleBool,
 	}
 
-	payload, _ := json.Marshal(body)
-
-	req := httptest.NewRequest(http.MethodPost, blogUrl, bytes.NewReader(payload))
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := app.Test(req)
-
-	assert.NoError(t, err)
-	assert.Equal(t, fiber.StatusInternalServerError, resp.StatusCode)
-}
-
-func TestPostGet_WithPostIdSuccess(t *testing.T) {
-	mockService := &MockBlogsService{
-		GetPostsData: []store.Post{{Title: "Gaming"}},
+	tests := []testCase{
+		{
+			name:           "Success",
+			postId:         1,
+			body:           validBody,
+			mockService:    &MockBlogsService{},
+			expectedStatus: fiber.StatusOK,
+		},
+		{
+			name:           "Invalid JSON Request",
+			postId:         1,
+			body:           "invalid-json-string",
+			mockService:    &MockBlogsService{},
+			expectedStatus: fiber.StatusBadRequest,
+		},
+		{
+			name:           "Validation Error",
+			postId:         1,
+			body:           validationErrorBody,
+			mockService:    &MockBlogsService{},
+			expectedStatus: fiber.StatusBadRequest,
+		},
+		{
+			name:           "Bad Param (non-int ID)",
+			postId:         "s",
+			body:           nil,
+			mockService:    &MockBlogsService{},
+			expectedStatus: fiber.StatusBadRequest,
+		},
+		{
+			name:           "Post Does Not Exist",
+			postId:         1,
+			body:           validBody,
+			mockService:    &MockBlogsService{UpdatePostError: store.ErrPostDoesNotExist},
+			expectedStatus: fiber.StatusNotFound,
+		},
+		{
+			name:           "Slug Already Exists",
+			postId:         1,
+			body:           validBody,
+			mockService:    &MockBlogsService{UpdatePostError: store.ErrSlugAlreadyExists},
+			expectedStatus: fiber.StatusConflict,
+		},
+		{
+			name:           "Internal Server Error",
+			postId:         1,
+			body:           validBody,
+			mockService:    &MockBlogsService{UpdatePostError: errors.New("internal")},
+			expectedStatus: fiber.StatusInternalServerError,
+		},
 	}
 
-	app := setupBlogsTestServer(mockService)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			app := setupBlogsTestServer(tc.mockService)
 
-	sampleId := 1
-	url := fmt.Sprintf("%s/%d", blogUrl, sampleId)
-	req := httptest.NewRequest(http.MethodGet, url, nil)
+			url := fmt.Sprintf("%s/%v", blogUrl, tc.postId)
 
-	resp, err := app.Test(req)
+			req := buildRequest(http.MethodPatch, url, tc.body)
 
-	if !assert.NoError(t, err) {
-		return
+			resp, err := app.Test(req)
+
+			assert.NoError(t, err)
+			assert.Equal(t, tc.expectedStatus, resp.StatusCode)
+		})
+	}
+}
+
+func TestPostDelete(t *testing.T) {
+	type testCase struct {
+		name           string
+		postId         interface{}
+		mockService    *MockBlogsService
+		expectedStatus int
 	}
 
-	getPostsResponse := &GetPostsWrapperResponse{}
-
-	err = json.NewDecoder(resp.Body).Decode(getPostsResponse)
-
-	assert.NoError(t, err)
-	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
-	assert.NotEmpty(t, getPostsResponse.Data)
-}
-
-func TestPostGet_WithoutPostIdSuccess(t *testing.T) {
-	mockService := &MockBlogsService{
-		GetPostsData: []store.Post{{Title: "Gaming"}},
+	tests := []testCase{
+		{
+			name:           "Success",
+			postId:         1,
+			mockService:    &MockBlogsService{},
+			expectedStatus: fiber.StatusOK,
+		},
+		{
+			name:           "Bad Param (non-integer ID)",
+			postId:         "s",
+			mockService:    &MockBlogsService{},
+			expectedStatus: fiber.StatusBadRequest,
+		},
+		{
+			name:           "Post Does Not Exist",
+			postId:         1,
+			mockService:    &MockBlogsService{DeletePostError: store.ErrPostDoesNotExist},
+			expectedStatus: fiber.StatusNotFound,
+		},
+		{
+			name:           "Internal Server Error",
+			postId:         1,
+			mockService:    &MockBlogsService{DeletePostError: errors.New("internal server error")},
+			expectedStatus: fiber.StatusInternalServerError,
+		},
 	}
 
-	app := setupBlogsTestServer(mockService)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			app := setupBlogsTestServer(tc.mockService)
 
-	req := httptest.NewRequest(http.MethodGet, blogUrl, nil)
+			url := fmt.Sprintf("%s/%v", blogUrl, tc.postId)
+			req := buildRequest(http.MethodDelete, url, nil)
 
-	resp, err := app.Test(req)
+			resp, err := app.Test(req)
 
-	assert.NoError(t, err)
-	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
-}
-
-func TestPostGet_BadParamsRequest(t *testing.T) {
-	mockService := &MockBlogsService{}
-
-	app := setupBlogsTestServer(mockService)
-
-	sampleId := "s"
-
-	url := fmt.Sprintf("%s/%s", blogUrl, sampleId)
-	req := httptest.NewRequest(http.MethodGet, url, nil)
-
-	resp, err := app.Test(req)
-
-	assert.NoError(t, err)
-	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
-}
-
-func TestPostGet_PostDoesNotExistsError(t *testing.T) {
-	mockService := &MockBlogsService{
-		GetPostsError: store.ErrPostDoesNotExist,
+			assert.NoError(t, err)
+			assert.Equal(t, tc.expectedStatus, resp.StatusCode)
+		})
 	}
-
-	app := setupBlogsTestServer(mockService)
-
-	sampleId := 1
-	url := fmt.Sprintf("%s/%d", blogUrl, sampleId)
-	req := httptest.NewRequest(http.MethodGet, url, nil)
-
-	resp, err := app.Test(req)
-
-	assert.NoError(t, err)
-	assert.Equal(t, fiber.StatusNotFound, resp.StatusCode)
-}
-
-func TestPostGet_WithoutIdInternalServerError(t *testing.T) {
-	mockService := &MockBlogsService{
-		GetPostsError: errors.New("internal server error"),
-	}
-
-	app := setupBlogsTestServer(mockService)
-
-	req := httptest.NewRequest(http.MethodGet, blogUrl, nil)
-
-	resp, err := app.Test(req)
-
-	assert.NoError(t, err)
-	assert.Equal(t, fiber.StatusInternalServerError, resp.StatusCode)
-}
-
-func TestPostGet_WithIdInternalServerError(t *testing.T) {
-	mockService := &MockBlogsService{
-		GetPostsError: errors.New("internal server error"),
-	}
-
-	app := setupBlogsTestServer(mockService)
-
-	sampleId := 1
-	url := fmt.Sprintf("%s/%d", blogUrl, sampleId)
-	req := httptest.NewRequest(http.MethodGet, url, nil)
-
-	resp, err := app.Test(req)
-
-	assert.NoError(t, err)
-	assert.Equal(t, fiber.StatusInternalServerError, resp.StatusCode)
-}
-
-func TestPostUpdate_Success(t *testing.T) {
-	mockService := &MockBlogsService{}
-
-	app := setupBlogsTestServer(mockService)
-
-	sampleId := 1
-
-	sampleText := "sample"
-	sampleBool := true
-	body := UpdatePostRequestBody{
-		Title:       &sampleText,
-		Description: &sampleText,
-		Slug:        &sampleText,
-		Content:     &sampleText,
-		AuthorName:  &sampleText,
-		Tags:        &[]string{},
-		IsPublished: &sampleBool,
-	}
-
-	payload, _ := json.Marshal(body)
-	url := fmt.Sprintf("%s/%d", blogUrl, sampleId)
-	req := httptest.NewRequest(http.MethodPatch, url, bytes.NewReader(payload))
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := app.Test(req)
-
-	assert.NoError(t, err)
-	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
-}
-
-func TestPostUpdate_InvalidRequest(t *testing.T) {
-	mockService := &MockBlogsService{}
-
-	app := setupBlogsTestServer(mockService)
-
-	sampleId := 1
-
-	sampleText := "sample"
-
-	payload, _ := json.Marshal(sampleText)
-	url := fmt.Sprintf("%s/%d", blogUrl, sampleId)
-	req := httptest.NewRequest(http.MethodPatch, url, bytes.NewReader(payload))
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := app.Test(req)
-
-	assert.NoError(t, err)
-	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
-}
-
-func TestPostUpdate_ValidationError(t *testing.T) {
-	mockService := &MockBlogsService{}
-
-	app := setupBlogsTestServer(mockService)
-
-	sampleId := 1
-
-	sampleText := "sample"
-	sampleAuthorName := "123"
-	sampleBool := true
-	body := UpdatePostRequestBody{
-		Description: &sampleText,
-		Slug:        &sampleText,
-		Content:     &sampleText,
-		AuthorName:  &sampleAuthorName,
-		Tags:        &[]string{},
-		IsPublished: &sampleBool,
-	}
-
-	payload, _ := json.Marshal(body)
-	url := fmt.Sprintf("%s/%d", blogUrl, sampleId)
-	req := httptest.NewRequest(http.MethodPatch, url, bytes.NewReader(payload))
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := app.Test(req)
-
-	assert.NoError(t, err)
-	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
-}
-
-func TestPostUpdate_BadParamsRequest(t *testing.T) {
-	mockService := &MockBlogsService{}
-
-	app := setupBlogsTestServer(mockService)
-
-	sampleId := "s"
-
-	url := fmt.Sprintf("%s/%s", blogUrl, sampleId)
-	req := httptest.NewRequest(http.MethodPatch, url, nil)
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := app.Test(req)
-
-	assert.NoError(t, err)
-	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
-}
-
-func TestPostUpdate_PostDoesNotExistError(t *testing.T) {
-	mockService := &MockBlogsService{
-		UpdatePostError: store.ErrPostDoesNotExist,
-	}
-
-	app := setupBlogsTestServer(mockService)
-
-	sampleId := 1
-
-	sampleText := "sample"
-	sampleBool := true
-	body := UpdatePostRequestBody{
-		Title:       &sampleText,
-		Description: &sampleText,
-		Slug:        &sampleText,
-		Content:     &sampleText,
-		AuthorName:  &sampleText,
-		Tags:        &[]string{},
-		IsPublished: &sampleBool,
-	}
-
-	payload, _ := json.Marshal(body)
-	url := fmt.Sprintf("%s/%d", blogUrl, sampleId)
-	req := httptest.NewRequest(http.MethodPatch, url, bytes.NewReader(payload))
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := app.Test(req)
-
-	assert.NoError(t, err)
-	assert.Equal(t, fiber.StatusNotFound, resp.StatusCode)
-}
-
-func TestPostUpdate_SlugAlreadyExistsError(t *testing.T) {
-	mockService := &MockBlogsService{
-		UpdatePostError: store.ErrSlugAlreadyExists,
-	}
-
-	app := setupBlogsTestServer(mockService)
-
-	sampleId := 1
-
-	sampleText := "sample"
-	sampleBool := true
-	body := UpdatePostRequestBody{
-		Title:       &sampleText,
-		Description: &sampleText,
-		Slug:        &sampleText,
-		Content:     &sampleText,
-		AuthorName:  &sampleText,
-		Tags:        &[]string{},
-		IsPublished: &sampleBool,
-	}
-
-	payload, _ := json.Marshal(body)
-	url := fmt.Sprintf("%s/%d", blogUrl, sampleId)
-	req := httptest.NewRequest(http.MethodPatch, url, bytes.NewReader(payload))
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := app.Test(req)
-
-	assert.NoError(t, err)
-	assert.Equal(t, fiber.StatusConflict, resp.StatusCode)
-}
-
-func TestPostUpdate_InternalServerError(t *testing.T) {
-	mockService := &MockBlogsService{
-		UpdatePostError: errors.New("internal server error"),
-	}
-
-	app := setupBlogsTestServer(mockService)
-
-	sampleId := 1
-
-	sampleText := "sample"
-	sampleBool := true
-	body := UpdatePostRequestBody{
-		Title:       &sampleText,
-		Description: &sampleText,
-		Slug:        &sampleText,
-		Content:     &sampleText,
-		AuthorName:  &sampleText,
-		Tags:        &[]string{},
-		IsPublished: &sampleBool,
-	}
-
-	payload, _ := json.Marshal(body)
-	url := fmt.Sprintf("%s/%d", blogUrl, sampleId)
-	req := httptest.NewRequest(http.MethodPatch, url, bytes.NewReader(payload))
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := app.Test(req)
-
-	assert.NoError(t, err)
-	assert.Equal(t, fiber.StatusInternalServerError, resp.StatusCode)
-}
-
-func TestPostDelete_Success(t *testing.T) {
-	mockService := &MockBlogsService{}
-
-	app := setupBlogsTestServer(mockService)
-
-	sampleId := 1
-
-	url := fmt.Sprintf("%s/%d", blogUrl, sampleId)
-	req := httptest.NewRequest(http.MethodDelete, url, nil)
-
-	resp, err := app.Test(req)
-
-	assert.NoError(t, err)
-	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
-}
-
-func TestPostDelete_BadParamsRequest(t *testing.T) {
-	mockService := &MockBlogsService{}
-
-	app := setupBlogsTestServer(mockService)
-
-	sampleId := "s"
-
-	url := fmt.Sprintf("%s/%s", blogUrl, sampleId)
-	req := httptest.NewRequest(http.MethodDelete, url, nil)
-
-	resp, err := app.Test(req)
-
-	assert.NoError(t, err)
-	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
-}
-
-func TestPostDelete_PostDoesNotExistsError(t *testing.T) {
-	mockService := &MockBlogsService{
-		DeletePostError: store.ErrPostDoesNotExist,
-	}
-
-	app := setupBlogsTestServer(mockService)
-
-	sampleId := 1
-
-	url := fmt.Sprintf("%s/%d", blogUrl, sampleId)
-	req := httptest.NewRequest(http.MethodDelete, url, nil)
-
-	resp, err := app.Test(req)
-
-	assert.NoError(t, err)
-	assert.Equal(t, fiber.StatusNotFound, resp.StatusCode)
-}
-
-func TestPostDelete_InternalServerError(t *testing.T) {
-	mockService := &MockBlogsService{
-		DeletePostError: errors.New("internal server error"),
-	}
-
-	app := setupBlogsTestServer(mockService)
-
-	sampleId := 1
-
-	url := fmt.Sprintf("%s/%d", blogUrl, sampleId)
-	req := httptest.NewRequest(http.MethodDelete, url, nil)
-
-	resp, err := app.Test(req)
-
-	assert.NoError(t, err)
-	assert.Equal(t, fiber.StatusInternalServerError, resp.StatusCode)
 }

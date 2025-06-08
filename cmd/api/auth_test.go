@@ -2,7 +2,6 @@ package api
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"errors"
 	"github.com/Roh-Bot/blog-api/internal/services"
@@ -34,41 +33,6 @@ func (m *MockAuthService) GenerateToken(username string) (string, error) {
 
 func (m *MockAuthService) ValidateToken(token string) (bool, error) {
 	return true, nil
-}
-
-type MockLogger struct {
-}
-
-func (m *MockLogger) Infoln(args ...any) {
-
-}
-
-func (m *MockLogger) Infof(template string, args ...any) {
-
-}
-
-func (m *MockLogger) Errorln(args ...any) {
-
-}
-
-func (m *MockLogger) Errorf(template string, args ...any) {
-
-}
-
-func (m *MockLogger) InfolnWithRequestId(ctx context.Context, args ...any) {
-
-}
-
-func (m *MockLogger) InfofWithRequestId(ctx context.Context, template string, args ...any) {
-
-}
-
-func (m *MockLogger) ErrorlnWithRequestId(ctx context.Context, args ...any) {
-
-}
-
-func (m *MockLogger) ErrorfWithRequestId(ctx context.Context, template string, args ...any) {
-
 }
 
 func setupAuthTestServer(auth services.IAuth) *fiber.App {

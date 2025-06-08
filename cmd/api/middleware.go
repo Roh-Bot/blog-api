@@ -20,6 +20,7 @@ func (s *Server) validateAuth(ctx *fiber.Ctx) error {
 	}
 	token := authHeader[7:]
 	isValid, err := s.Services.Auth.ValidateToken(token)
+
 	if err != nil || !isValid {
 		s.Logger.ErrorlnWithRequestId(ctx.UserContext(), err)
 		if errors.Is(err, auth.ErrTokenExpired) {

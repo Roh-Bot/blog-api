@@ -1,6 +1,6 @@
 module github.com/Roh-Bot/blog-api
 
-go 1.24.2
+go 1.24.0
 
 require (
 	github.com/go-playground/validator/v10 v10.26.0

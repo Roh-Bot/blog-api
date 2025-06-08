@@ -6,6 +6,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/pkg/errors"
+	"time"
 )
 
 const (
@@ -32,11 +33,11 @@ type Post struct {
 	Content     string
 	AuthorName  string
 	Tags        []string
-	IsPublished bool
+	PublishedAt time.Time
 }
 
 type GetPostsQueryParams struct {
-	Id int
+	Id *int
 }
 
 type AddPostQueryParam struct {
@@ -68,7 +69,7 @@ func (u *BlogStore) AddPost(ctx context.Context, postParam *AddPostQueryParam) e
 	if _, err := u.db.Exec(ctx, `SELECT * FROM posts_insert($1, $2, $3, $4, $5, $6, $7)`,
 		postParam.Title, postParam.Description, postParam.Slug, postParam.Content, postParam.AuthorName, postParam.Tags, postParam.IsPublished); err != nil {
 		var pgError *pgconn.PgError
-		if !errors.As(err, pgError) {
+		if !errors.As(err, &pgError) {
 			return err
 		}
 		if pgError.Code == stateP1 {
@@ -81,7 +82,7 @@ func (u *BlogStore) AddPost(ctx context.Context, postParam *AddPostQueryParam) e
 
 func (u *BlogStore) GetPosts(ctx context.Context, postParam *GetPostsQueryParams) ([]Post, error) {
 	rows, err := u.db.Query(ctx,
-		`SELECT * FROM posts_get($1, $2, $3, $4, $5, $6, $7, $8)`, postParam.Id)
+		`SELECT * FROM posts_get($1)`, postParam.Id)
 	if err != nil {
 		return nil, err
 	}
@@ -91,29 +92,28 @@ func (u *BlogStore) GetPosts(ctx context.Context, postParam *GetPostsQueryParams
 		post := Post{}
 		if err := rows.Scan(
 			&post.Id, &post.Title, &post.Description, &post.Slug, &post.Content,
-			&post.AuthorName, &post.Tags, &post.IsPublished); err != nil {
+			&post.AuthorName, &post.Tags, &post.PublishedAt); err != nil {
 			return nil, err
 		}
 		posts = append(posts, post)
 	}
 	if err := rows.Err(); err != nil {
 		var pgError *pgconn.PgError
-		if !errors.As(err, pgError) {
-			return nil, err
-		}
-		if pgError.Code == stateP1 {
+		if !errors.As(err, &pgError) && pgError.Code == stateP1 {
 			return nil, ErrPostDoesNotExist
 		}
+		return nil, err
 	}
 
 	return posts, nil
 }
 
 func (u *BlogStore) UpdatePost(ctx context.Context, postParam *UpdatePostQueryParams) error {
-	if _, err := u.db.Exec(ctx, `SELECT * FROM posts_insert($1, $2, $3, $4, $5, $6, $7)`,
-		postParam.Title, postParam.Description, postParam.Slug, postParam.Content, postParam.AuthorName, postParam.Tags, postParam.IsPublished); err != nil {
+	if _, err := u.db.Exec(ctx, `SELECT * FROM posts_update($1, $2, $3, $4, $5, $6, $7, $8)`,
+		postParam.Id, postParam.Title, postParam.Description, postParam.Slug, postParam.Content,
+		postParam.AuthorName, postParam.Tags, postParam.IsPublished); err != nil {
 		var pgError *pgconn.PgError
-		if !errors.As(err, pgError) {
+		if !errors.As(err, &pgError) {
 			return err
 		}
 		switch {
@@ -130,7 +130,7 @@ func (u *BlogStore) UpdatePost(ctx context.Context, postParam *UpdatePostQueryPa
 func (u *BlogStore) DeletePost(ctx context.Context, postParam *DeletePostQueryParams) error {
 	if _, err := u.db.Exec(ctx, `SELECT * FROM posts_delete($1)`, postParam.Id); err != nil {
 		var pgError *pgconn.PgError
-		if !errors.As(err, pgError) {
+		if !errors.As(err, &pgError) {
 			return err
 		}
 		if pgError.Code == stateP1 {

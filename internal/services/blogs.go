@@ -15,7 +15,7 @@ type BlogService struct {
 }
 
 type GetPostsDto struct {
-	Id int
+	Id *int
 }
 
 type AddPostDto struct {

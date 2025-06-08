@@ -1,4 +1,4 @@
-.PHONY: all deps build run debug image container stop-container compose db-migrate-up db-migrate-down
+.PHONY: all deps build run debug image container stop-container compose db-migrate-up db-migrate-down swag-gen
 
 image_version=1.0.0
 image_name=go-clean:$(image_version)
@@ -57,3 +57,6 @@ db-migrate-up:
 
 db-migrate-down:
 	goose -dir ./cmd/migrate/migrations postgres "host=localhost port=5432 database=blogs user=postgres password=admin" down
+
+swag-gen:
+	swag init -g cmd/blog-api/main.go -o docs

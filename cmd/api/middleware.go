@@ -47,7 +47,7 @@ func (s *Server) requestLogger(ctx *fiber.Ctx) error {
 	if err != nil {
 		return s.internalServerError(ctx, err, stringEmpty)
 	}
-	s.Logger.InfolnWithRequestId(ctxUser, requestLogJson)
+	s.Logger.InfolnWithRequestId(ctx.UserContext(), string(requestLogJson))
 	return ctx.Next()
 }
 
@@ -56,11 +56,10 @@ func (s *Server) responseLogger(ctx *fiber.Ctx) error {
 	if err != nil {
 		s.Logger.ErrorlnWithRequestId(ctx.UserContext(), err.Error())
 	}
-	ctxUser := ctx.UserContext()
 
 	body := ctx.Response().Body()
 	// Log the response
-	s.Logger.InfolnWithRequestId(ctxUser, string(body))
+	s.Logger.InfolnWithRequestId(ctx.UserContext(), string(body))
 
 	return err
 }

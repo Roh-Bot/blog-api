@@ -22,6 +22,7 @@ CREATE OR REPLACE FUNCTION posts_get(
             (
                 post_id      BIGINT,
                 title        TEXT,
+                description TEXT,
                 slug         TEXT,
                 content      TEXT,
                 author_name  TEXT,
@@ -32,12 +33,13 @@ CREATE OR REPLACE FUNCTION posts_get(
 AS
 $$
 BEGIN
-    IF p_post_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM posts WHERE post_id = p_post_id) THEN
+    IF p_post_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM posts p WHERE p.post_id = p_post_id) THEN
         RAISE EXCEPTION 'Post does not exist' USING ERRCODE = 'P0001';
     END IF;
 
     RETURN QUERY (SELECT p.post_id,
                          p.title,
+                         p.description,
                          p.slug,
                          p.content,
                          p.author_name,
@@ -46,7 +48,7 @@ BEGIN
                   FROM posts p
                   WHERE is_published = TRUE
                     AND (
-                      p.post_id IS NULL
+                      p_post_id IS NULL
                           OR
                       p.post_id = p_post_id
                       ));

@@ -12,27 +12,50 @@ const (
 	success                = "Success"
 )
 
-type response struct {
-	Status int
-	Error  string
-	Data   any
+// Response represents a standard response model
+// swagger:model Response
+type Response struct {
+	// Status
+	// example: 1 / -1
+	Status int `json:"Status"`
+
+	// Error message
+	// example: Something went wrong
+	Error string `json:"Error"`
+
+	// Data actual response data
+	// example: Success
+	Data any `json:"Data"`
 }
 
 func (s *Server) writeResponse(ctx *fiber.Ctx, data any) error {
 	if data == nil {
-		return ctx.Status(fiber.StatusOK).JSON(response{
+		return ctx.Status(fiber.StatusOK).JSON(Response{
 			Status: 1,
 			Data:   success,
 		})
 	}
-	return ctx.Status(fiber.StatusOK).JSON(response{
+	return ctx.Status(fiber.StatusOK).JSON(Response{
+		Status: 1,
+		Data:   data,
+	})
+}
+
+func (s *Server) writeResponseWithStatusCode(ctx *fiber.Ctx, statusCode int, data any) error {
+	if data == nil {
+		return ctx.Status(statusCode).JSON(Response{
+			Status: 1,
+			Data:   success,
+		})
+	}
+	return ctx.Status(fiber.StatusOK).JSON(Response{
 		Status: 1,
 		Data:   data,
 	})
 }
 
 func (s *Server) writeErrorResponse(ctx *fiber.Ctx, statusCode int, error string) error {
-	return ctx.Status(statusCode).JSON(response{
+	return ctx.Status(statusCode).JSON(Response{
 		Status: -1,
 		Error:  error,
 	})
@@ -55,11 +78,14 @@ func (s *Server) badRequest(ctx *fiber.Ctx, err error, errorMessage string) erro
 }
 
 func (s *Server) unauthorized(ctx *fiber.Ctx, err error, errorMessage string) error {
-	s.Logger.ErrorlnWithRequestId(ctx.UserContext(), err.Error())
+	if err != nil {
+		errorMessage = err.Error()
+	}
+	s.Logger.ErrorlnWithRequestId(ctx.UserContext(), errorMessage)
 	if errorMessage == "" {
 		errorMessage = errUnauthorized
 	}
-	return s.writeErrorResponse(ctx, fiber.StatusUnauthorized, errUnauthorized)
+	return s.writeErrorResponse(ctx, fiber.StatusUnauthorized, errorMessage)
 }
 
 func (s *Server) notFound(ctx *fiber.Ctx, errorMessage string) error {

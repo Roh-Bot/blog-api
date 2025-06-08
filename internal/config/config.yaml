@@ -12,7 +12,7 @@ Auth:
   issuer: "Server"
   audience: "App"
   token_ttl: 15 #in minutes
-  encryption_key: "ASFKQIasdriPOWlsa123432"
+  encryption_key: "dF9vL8eX2rN9qWmZT7Bv31kYXpA5csHd"
   valid_users:
     - devadiga.rohit
 

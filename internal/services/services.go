@@ -14,7 +14,7 @@ type Service struct {
 }
 
 type IBlog interface {
-	GetPosts(ctx context.Context, getPosts *GetPostsDto) (*store2.Post, error)
+	GetPosts(ctx context.Context, getPosts *GetPostsDto) ([]store2.Post, error)
 	AddPost(ctx context.Context, addPost *AddPostDto) error
 	UpdatePost(ctx context.Context, addPost *UpdatePostDto) error
 	DeletePost(ctx context.Context, addPost *DeletePostDto) error

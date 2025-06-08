@@ -17,12 +17,12 @@ Auth:
     - devadiga.rohit
 
 Database:
-  host: localhost
+  host: dpg-d12jjls9c44c738cjmg0-a.virginia-postgres.render.com
   port: 5432
-  user: postgres
-  password: admin
-  database: blogs
-  ssl_mode: disable
+  user: amethyst
+  password: Ov2Za80b9SN811wiGmuOR5m2oZYWoAkz
+  database: blogs_z5le
+  ssl_mode: require
   max_connections: 100
   max_connection_idle_time: 10 #in minutes
   max_connection_lifetime: 10 #in minutes

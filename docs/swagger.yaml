@@ -202,14 +202,6 @@ definitions:
           example: Updated Post Title
         maxLength: 100
         type: string
-      id:
-        description: |-
-          Post ID to update
-          required: true
-          example: 1
-        type: integer
-    required:
-    - id
     type: object
 host: localhost:8000
 info:

@@ -537,9 +537,6 @@ const docTemplate = `{
         },
         "api.UpdatePostRequestBody": {
             "type": "object",
-            "required": [
-                "id"
-            ],
             "properties": {
                 "AuthorName": {
                     "description": "Optional: updated author name\nexample: RohitDev",
@@ -572,10 +569,6 @@ const docTemplate = `{
                     "description": "Optional: updated title\nexample: Updated Post Title",
                     "type": "string",
                     "maxLength": 100
-                },
-                "id": {
-                    "description": "Post ID to update\nrequired: true\nexample: 1",
-                    "type": "integer"
                 }
             }
         }

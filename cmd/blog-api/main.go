@@ -47,14 +47,8 @@ func main() {
 		log.Fatal(err)
 	}
 
-	rotateLogsWriteSyncer, err := logger.RotateLogsWriteSyncer(*cfg.Get())
-	if err != nil {
-		log.Fatal(err)
-	}
-	rotateLogsSink := logger.NewZapCore(rotateLogsWriteSyncer, cfg.Get().Logger.Level)
-
 	//Initializing logger
-	newLogger, err := logger.ZapNew(cfg.Get().Logger, rotateLogsSink)
+	newLogger, err := logger.ZapNew(cfg.Get().Logger)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -78,7 +72,7 @@ func main() {
 	auth2 := auth.NewAuthentication(jwt, aes)
 
 	// Initializing Service layer
-	services := servicesv1.NewService(newLogger, cfg, auth2)
+	services := servicesv1.NewService(newLogger, cfg, auth2, newStore)
 
 	// Initializing validator
 	validator2 := validator.NewValidator()

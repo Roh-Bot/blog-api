@@ -53,10 +53,10 @@ compose-down:
 	docker compose down
 
 db-migrate-up:
-	goose -dir ./cmd/migrate/migrations postgres "host=localhost port=5432 database=blogs user=postgres password=admin" up
+	goose -dir ./cmd/migrate/migrations postgres "host=dpg-d12jjls9c44c738cjmg0-a.virginia-postgres.render.com port=5432 database=blogs_z5le user=amethyst password=Ov2Za80b9SN811wiGmuOR5m2oZYWoAkz" up
 
 db-migrate-down:
-	goose -dir ./cmd/migrate/migrations postgres "host=localhost port=5432 database=blogs user=postgres password=admin" down
+	goose -dir ./cmd/migrate/migrations postgres "host=dpg-d12jjls9c44c738cjmg0-a.virginia-postgres.render.com port=5432 database=blogs_z5le user=amethyst password=Ov2Za80b9SN811wiGmuOR5m2oZYWoAkz" down
 
 swag-gen:
 	swag init -g cmd/blog-api/main.go -o docs

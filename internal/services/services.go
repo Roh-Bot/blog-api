@@ -26,11 +26,12 @@ type IAuth interface {
 	ValidateToken(token string) (bool, error)
 }
 
-func NewService(logger logger.Logger, config *config.AtomicConfig, auth *auth.Authentication) *Service {
+func NewService(logger logger.Logger, config *config.AtomicConfig, auth *auth.Authentication, store store2.Store) *Service {
 	return &Service{
 		Blog: &BlogService{
 			logger: logger,
 			config: config,
+			store:  store,
 		},
 		Auth: &AuthService{
 			config: config,

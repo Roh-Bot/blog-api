@@ -1,4 +1,4 @@
-.PHONY: all deps build run debug image container stop-container compose db-migrate-up db-migrate-down swag-gen
+.PHONY: all deps build run debug image container stop-container compose db-migrate-up db-migrate-down swag-gen test test-cover
 
 image_version=1.0.0
 image_name=go-clean:$(image_version)
@@ -60,3 +60,10 @@ db-migrate-down:
 
 swag-gen:
 	swag init -g cmd/blog-api/main.go -o docs
+
+test:
+	go test ./... -v
+
+test-cover:
+	go test ./... -coverprofile=coverage.out && go tool cover -html=coverage.out
+

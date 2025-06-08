@@ -3,7 +3,6 @@ package services
 import (
 	"github.com/Roh-Bot/blog-api/internal/auth"
 	"github.com/Roh-Bot/blog-api/internal/config"
-	"github.com/Roh-Bot/blog-api/internal/store"
 	"github.com/Roh-Bot/blog-api/pkg/logger"
 	"github.com/golang-jwt/jwt/v5"
 	"slices"
@@ -14,7 +13,6 @@ import (
 type AuthService struct {
 	config *config.AtomicConfig
 	logger logger.Logger
-	store  store.Store
 	auth   *auth.Authentication
 }
 

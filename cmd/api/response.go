@@ -62,18 +62,26 @@ func (s *Server) writeErrorResponse(ctx *fiber.Ctx, statusCode int, error string
 }
 
 func (s *Server) internalServerError(ctx *fiber.Ctx, err error, errorMessage string) error {
-	s.Logger.ErrorlnWithRequestId(ctx.UserContext(), err.Error())
-	if errorMessage == "" {
-		errorMessage = errInternalServerError
+	if err != nil {
+		errorMessage = err.Error()
 	}
+	if errorMessage == "" {
+		errorMessage = errUnauthorized
+	}
+	s.Logger.ErrorlnWithRequestId(ctx.UserContext(), errorMessage)
+
 	return s.writeErrorResponse(ctx, fiber.StatusInternalServerError, errorMessage)
 }
 
 func (s *Server) badRequest(ctx *fiber.Ctx, err error, errorMessage string) error {
-	s.Logger.ErrorlnWithRequestId(ctx.UserContext(), err.Error())
-	if errorMessage == "" {
-		errorMessage = errBadRequest
+	if err != nil {
+		errorMessage = err.Error()
 	}
+	if errorMessage == "" {
+		errorMessage = errUnauthorized
+	}
+	s.Logger.ErrorlnWithRequestId(ctx.UserContext(), errorMessage)
+
 	return s.writeErrorResponse(ctx, fiber.StatusBadRequest, errBadRequest)
 }
 
@@ -81,10 +89,11 @@ func (s *Server) unauthorized(ctx *fiber.Ctx, err error, errorMessage string) er
 	if err != nil {
 		errorMessage = err.Error()
 	}
-	s.Logger.ErrorlnWithRequestId(ctx.UserContext(), errorMessage)
 	if errorMessage == "" {
 		errorMessage = errUnauthorized
 	}
+	s.Logger.ErrorlnWithRequestId(ctx.UserContext(), errorMessage)
+
 	return s.writeErrorResponse(ctx, fiber.StatusUnauthorized, errorMessage)
 }
 

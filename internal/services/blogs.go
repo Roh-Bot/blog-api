@@ -2,7 +2,6 @@ package services
 
 import (
 	"context"
-	"errors"
 	"github.com/Roh-Bot/blog-api/internal/config"
 	store2 "github.com/Roh-Bot/blog-api/internal/store"
 	"github.com/Roh-Bot/blog-api/pkg/logger"
@@ -43,10 +42,6 @@ type DeletePostDto struct {
 	Id int
 }
 
-var (
-	errInvalidInput = errors.New("invalid input")
-)
-
 func (b *BlogService) GetPosts(ctx context.Context, post *GetPostsDto) ([]store2.Post, error) {
 	return b.store.Blogs.GetPosts(ctx, &store2.GetPostsQueryParams{
 		Id: post.Id,
@@ -85,8 +80,4 @@ func (b *BlogService) DeletePost(ctx context.Context, post *DeletePostDto) error
 	return b.store.Blogs.DeletePost(ctx, &store2.DeletePostQueryParams{
 		Id: post.Id,
 	})
-}
-
-func (b *BlogService) ErrInvalidInput() error {
-	return errInvalidInput
 }

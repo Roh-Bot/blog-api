@@ -123,18 +123,26 @@ func (z *ZapLogger) Errorf(template string, args ...any) {
 }
 
 func (z *ZapLogger) InfolnWithRequestId(ctx context.Context, args ...any) {
-	logger := z.zap.With(zap.String("Request", ctx.Value("request_id").(string)))
+	logger := z.zap.With()
+	if requestId, ok := ctx.Value("request_id").(string); ok {
+		logger = z.zap.With(zap.String("Request", requestId))
+	}
 	logger.Infoln(args)
 }
 
 func (z *ZapLogger) ErrorlnWithRequestId(ctx context.Context, args ...any) {
-	logger := z.zap.With(zap.String("Request", ctx.Value("request_id").(string)))
+	logger := z.zap.With()
+	if requestId, ok := ctx.Value("request_id").(string); ok {
+		logger = z.zap.With(zap.String("Request", requestId))
+	}
 	logger.Errorln(args)
 }
 
 func (z *ZapLogger) InfofWithRequestId(ctx context.Context, template string, args ...any) {
-	logger := z.zap.With(zap.String("Request", ctx.Value("request_id").(string)))
-
+	logger := z.zap.With()
+	if requestId, ok := ctx.Value("request_id").(string); ok {
+		logger = z.zap.With(zap.String("Request", requestId))
+	}
 	if len(args) == 0 || args == nil {
 		logger.Infof(template)
 		return
@@ -143,8 +151,10 @@ func (z *ZapLogger) InfofWithRequestId(ctx context.Context, template string, arg
 }
 
 func (z *ZapLogger) ErrorfWithRequestId(ctx context.Context, template string, args ...any) {
-	logger := z.zap.With(zap.String("Request", ctx.Value("request_id").(string)))
-
+	logger := z.zap.With()
+	if requestId, ok := ctx.Value("request_id").(string); ok {
+		logger = z.zap.With(zap.String("Request", requestId))
+	}
 	if len(args) == 0 || args == nil {
 		logger.Errorf(template)
 		return

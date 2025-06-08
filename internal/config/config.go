@@ -2,11 +2,11 @@ package config
 
 import (
 	"context"
+	"errors"
 	"github.com/knadh/koanf/parsers/yaml"
 	"github.com/knadh/koanf/providers/file"
 	"github.com/knadh/koanf/v2"
 	"log"
-	"log/slog"
 	"os"
 	"path/filepath"
 	"sync/atomic"
@@ -74,7 +74,11 @@ func LoadConfiguration(ctx context.Context) (*AtomicConfig, error) {
 	exeDir := filepath.Dir(exePath)
 	configPath := filepath.Join(exeDir, "config.yaml")
 
+	if _, err := os.Stat(configPath); errors.Is(err, os.ErrNotExist) {
+		configPath = os.Getenv("CONFIG_PATH")
+	}
 	fileProvider := file.Provider(configPath)
+
 	k := koanf.New(".")
 	if err := k.Load(fileProvider, yaml.Parser()); err != nil {
 		return nil, err
@@ -88,7 +92,7 @@ func LoadConfiguration(ctx context.Context) (*AtomicConfig, error) {
 	atomicConfig := &AtomicConfig{}
 	atomicConfig.Set(c)
 
-	go reloader(ctx, fileProvider, atomicConfig)
+	//go reloader(ctx, fileProvider, atomicConfig)
 	// Get secrets from env
 	//c.Server.auth.Secret = os.Getenv("JWT_SECRET")
 
@@ -98,33 +102,33 @@ func LoadConfiguration(ctx context.Context) (*AtomicConfig, error) {
 func reloader(ctx context.Context, f *file.File, ac *AtomicConfig) {
 	err := f.Watch(func(event interface{}, err error) {
 		if err != nil {
-			slog.Info("watch error: %v", err)
+			log.Println("watch error: ", err.Error())
 			return
 		}
 
 		// Throw away the old config and load a fresh copy.
-		slog.Info("config changed. Reloading ...")
+		log.Println("config changed. Reloading ...")
 		k := koanf.New(".")
 		if err := k.Load(f, yaml.Parser()); err != nil {
 			return
 		}
 		c, err := unmarshalIntoStruct(k)
 		if err != nil {
-			slog.Info(err.Error())
+			log.Println(err.Error())
 			return
 		}
 		ac.Set(c)
 
-		slog.Info("config reload complete.")
+		log.Println("config reload complete.")
 	})
 	if err != nil {
 		return
 	}
 
-	slog.Info("waiting for config changes...")
+	log.Println("waiting for config changes...")
 	<-ctx.Done()
 	if err := f.Unwatch(); err != nil {
-		slog.Error("failed to unwatch: %v", err)
+		log.Println("failed to unwatch: ", err.Error())
 	}
 }
 

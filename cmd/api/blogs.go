@@ -268,9 +268,13 @@ func (s *Server) postUpdate(ctx *fiber.Ctx) error {
 		return s.badRequest(ctx, err, stringEmpty)
 	}
 
-	postBody := UpdatePostRequestBody{}
-	if err := ctx.BodyParser(&postBody); err != nil {
+	postBody := &UpdatePostRequestBody{}
+	if err := ctx.BodyParser(postBody); err != nil {
 		return s.badRequest(ctx, err, stringEmpty)
+	}
+
+	if err := s.Validator.Struct(postBody); err != nil {
+		return s.badRequest(ctx, err, validationToErrorMessage(err))
 	}
 
 	if err := s.Services.Blog.UpdatePost(ctx.UserContext(), &services.UpdatePostDto{
@@ -319,7 +323,7 @@ func (s *Server) postDelete(ctx *fiber.Ctx) error {
 		Id: post.Id,
 	}); err != nil {
 		if errors.Is(err, store.ErrPostDoesNotExist) {
-			return s.internalServerError(ctx, err, err.Error())
+			return s.notFound(ctx, err.Error())
 		}
 		return s.internalServerError(ctx, err, stringEmpty)
 	}

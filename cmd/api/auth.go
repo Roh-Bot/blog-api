@@ -60,7 +60,7 @@ func (s *Server) authLoginUser(ctx *fiber.Ctx) error {
 	}
 
 	if isValid := s.Services.Auth.IsValid(user.Username); !isValid {
-		return s.writeResponse(ctx, errInvalidUsername)
+		return s.unauthorized(ctx, nil, errInvalidUsername)
 	}
 
 	token, err := s.Services.Auth.GenerateToken(user.Username)

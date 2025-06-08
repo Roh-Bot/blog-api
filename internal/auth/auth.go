@@ -16,7 +16,6 @@ type JWTAuthenticator interface {
 
 type Encryption interface {
 	Encrypt(data string) ([]byte, error)
-	Decrypt(data string) ([]byte, error)
 }
 
 func NewAuthentication(jwt2 *JWT, aes2 *AES) *Authentication {

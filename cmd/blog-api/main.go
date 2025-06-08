@@ -78,7 +78,7 @@ func main() {
 	auth2 := auth.NewAuthentication(jwt, aes)
 
 	// Initializing Service layer
-	services := servicesv1.NewService(newStore, newLogger, cfg, auth2)
+	services := servicesv1.NewService(newLogger, cfg, auth2)
 
 	// Initializing validator
 	validator2 := validator.NewValidator()

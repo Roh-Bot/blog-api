@@ -203,7 +203,6 @@ definitions:
         maxLength: 100
         type: string
     type: object
-host: localhost:8000
 info:
   contact:
     email: support@example.com
@@ -440,6 +439,7 @@ paths:
       tags:
       - Blog
 schemes:
+- https
 - http
 securityDefinitions:
   ApiKeyAuth:

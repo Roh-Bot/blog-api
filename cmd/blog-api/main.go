@@ -52,12 +52,23 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	// Flushing the logger
+	defer func() {
+		err := newLogger.Sync()
+		if err != nil {
+			log.Fatal(err)
+			return
+		}
+	}()
 
 	// Connecting to database
 	db, err := database.New(cfg.Get().Database)
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	//Flushing database connection pool
+	defer database.Flush()
 
 	// Initializing storage layer
 	newStore := store.NewStorage(db, cfg)
@@ -87,9 +98,6 @@ func main() {
 	// Waiting for termination signal
 	appCtx.HandleShutdownSignal()
 	appCtx.WaitForShutdown()
-
-	//Close db connection, flush logger, close smtp
-	//database.Flush()
 
 	log.Println("Goodbye")
 }

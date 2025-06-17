@@ -11,4 +11,5 @@ type Logger interface {
 	InfofWithRequestId(ctx context.Context, template string, args ...any)
 	ErrorlnWithRequestId(ctx context.Context, args ...any)
 	ErrorfWithRequestId(ctx context.Context, template string, args ...any)
+	Sync() error
 }

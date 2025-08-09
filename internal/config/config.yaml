@@ -23,6 +23,26 @@ Database:
   password: Ov2Za80b9SN811wiGmuOR5m2oZYWoAkz
   database: blogs_z5le
   ssl_mode: require
-  max_connections: 100
-  max_connection_idle_time: 10 #in minutes
-  max_connection_lifetime: 10 #in minutes
+  max_connection_idle_time: 30m
+  max_connection_lifetime: 1h
+
+Cache:
+  host: localhost
+  protocol: 3
+  port: 6379
+  user: rohbot
+  password: admin
+  db: 0
+  max_retries: 3
+  min_retry_backoff: 100ms
+  max_retry_backoff: 1s
+  dial_timeout: 5s
+  read_timeout: 3s
+  write_timeout: 3s
+  pool_fifo: true
+  pool_size: 50
+  pool_timeout: 4s
+  min_idle_conns: 10
+  conn_max_idle_time: 30m
+  conn_max_lifetime: 1h
+

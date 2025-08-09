@@ -166,7 +166,7 @@ type (
 		// example: ""
 		Error string `json:"Error"`
 
-		// example: {"AccessToken":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."}
+		// example: {"Title":"Gaming..."}
 		Data []GetPostsResponse `json:"Data"`
 	}
 )
@@ -243,7 +243,7 @@ func (s *Server) postsGet(ctx *fiber.Ctx) error {
 		if errors.Is(err, store.ErrPostDoesNotExist) {
 			return s.notFound(ctx, err.Error())
 		}
-		return s.internalServerError(ctx, err, stringEmpty)
+		return s.internalServerError(ctx, nil, stringEmpty)
 	}
 	return s.writeResponseWithStatusCode(ctx, fiber.StatusCreated, posts)
 }

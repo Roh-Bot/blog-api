@@ -8,9 +8,11 @@ import (
 	"time"
 )
 
-var dbPool *pgxpool.Pool
+type Database struct {
+	*pgxpool.Pool
+}
 
-func New(config config.Database) (pool *pgxpool.Pool, err error) {
+func NewMasterConnection(config config.Database) (db *Database, err error) {
 	connString := fmt.Sprintf(
 		`host=%s port=%s user=%s password=%s database=%s sslmode=%s`,
 		config.Host, config.Port, config.User, config.Password, config.Database, config.SSLMode)
@@ -18,13 +20,12 @@ func New(config config.Database) (pool *pgxpool.Pool, err error) {
 	if err != nil {
 		return
 	}
-	cfg.MaxConns = config.MaxConnections
-	cfg.MaxConnIdleTime = time.Minute * time.Duration(config.MaxConnectionIdleTime)
-	cfg.MaxConnLifetime = time.Minute * time.Duration(config.MaxConnectionLifetime)
+	cfg.MaxConnIdleTime = config.MaxConnectionIdleTime
+	cfg.MaxConnLifetime = config.MaxConnectionLifetime
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
-	pool, err = pgxpool.NewWithConfig(ctx, cfg)
+	pool, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {
 		return
 	}
@@ -34,10 +35,9 @@ func New(config config.Database) (pool *pgxpool.Pool, err error) {
 	if err := pool.Ping(ctx); err != nil {
 		return nil, err
 	}
-	dbPool = pool
-	return pool, nil
+	return &Database{pool}, nil
 }
 
-func Flush() {
-	dbPool.Close()
+func (d *Database) Flush() {
+	d.Close()
 }

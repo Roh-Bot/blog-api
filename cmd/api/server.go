@@ -22,7 +22,7 @@ type Server struct {
 	Config *config.AtomicConfig
 
 	//Dependencies
-	Services  *servicesv1.Service
+	Services  servicesv1.Service
 	Validator *validator.Validate
 	Logger    logger.Logger
 	AppCtx    *global.ApplicationContext
@@ -31,7 +31,7 @@ type Server struct {
 	Router *fiber.App
 }
 
-func NewServer(config *config.AtomicConfig, services *servicesv1.Service, validator *validator.Validate, logger logger.Logger, appCtx *global.ApplicationContext) *Server {
+func NewServer(config *config.AtomicConfig, services servicesv1.Service, validator *validator.Validate, logger logger.Logger, appCtx *global.ApplicationContext) *Server {
 	return &Server{
 		Config:   config,
 		Services: services,

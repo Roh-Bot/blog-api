@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/Roh-Bot/blog-api/internal/entity"
 	"github.com/Roh-Bot/blog-api/internal/services"
 	"github.com/Roh-Bot/blog-api/internal/store"
 	"github.com/Roh-Bot/blog-api/internal/validator"
@@ -24,7 +25,7 @@ const (
 type MockBlogsService struct {
 	AddPostError    error
 	GetPostsError   error
-	GetPostsData    []store.Post
+	GetPostsData    []entity.Post
 	UpdatePostError error
 	DeletePostError error
 }
@@ -33,7 +34,7 @@ func (m *MockBlogsService) AddPost(ctx context.Context, addPost *services.AddPos
 	return m.AddPostError
 }
 
-func (m *MockBlogsService) GetPosts(ctx context.Context, getPosts *services.GetPostsDto) ([]store.Post, error) {
+func (m *MockBlogsService) GetPosts(ctx context.Context, getPosts *services.GetPostsDto) ([]entity.Post, error) {
 	return m.GetPostsData, m.GetPostsError
 }
 
@@ -46,7 +47,7 @@ func (m *MockBlogsService) DeletePost(ctx context.Context, addPost *services.Del
 }
 
 func setupBlogsTestServer(blogs services.IBlog) *fiber.App {
-	mockService := &services.Service{
+	mockService := services.Service{
 		Blog: blogs,
 		Auth: &MockAuthService{ShouldValidate: true},
 	}
@@ -171,7 +172,7 @@ func TestPostGet(t *testing.T) {
 
 	sampleId := 1
 	sampleTitle := "Gaming"
-	samplePosts := []store.Post{{Title: sampleTitle}}
+	samplePosts := []entity.Post{{Title: sampleTitle}}
 
 	tests := []testCase{
 		{

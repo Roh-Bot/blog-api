@@ -3,7 +3,8 @@ package store
 import (
 	"context"
 	"github.com/Roh-Bot/blog-api/internal/config"
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/Roh-Bot/blog-api/internal/database"
+	"github.com/Roh-Bot/blog-api/internal/entity"
 )
 
 type Store struct {
@@ -12,12 +13,12 @@ type Store struct {
 
 type IBlogs interface {
 	AddPost(context.Context, *AddPostQueryParam) error
-	GetPosts(ctx context.Context, postParam *GetPostsQueryParams) ([]Post, error)
+	GetPosts(ctx context.Context, postParam *GetPostsQueryParams) ([]entity.Post, error)
 	UpdatePost(context.Context, *UpdatePostQueryParams) error
 	DeletePost(context.Context, *DeletePostQueryParams) error
 }
 
-func NewStorage(db *pgxpool.Pool, config *config.AtomicConfig) Store {
+func NewStorage(db *database.Database, config *config.AtomicConfig) Store {
 	return Store{
 		Blogs: &BlogStore{db: db, config: config},
 	}

@@ -36,3 +36,7 @@ func (m *MockLogger) ErrorlnWithRequestId(ctx context.Context, args ...any) {
 func (m *MockLogger) ErrorfWithRequestId(ctx context.Context, template string, args ...any) {
 
 }
+
+func (m *MockLogger) Sync() error {
+	return nil
+}

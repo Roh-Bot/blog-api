@@ -66,7 +66,7 @@ func (s *Server) internalServerError(ctx *fiber.Ctx, err error, errorMessage str
 		errorMessage = err.Error()
 	}
 	if errorMessage == "" {
-		errorMessage = errUnauthorized
+		errorMessage = errInternalServerError
 	}
 	s.Logger.ErrorlnWithRequestId(ctx.UserContext(), errorMessage)
 
@@ -78,7 +78,7 @@ func (s *Server) badRequest(ctx *fiber.Ctx, err error, errorMessage string) erro
 		errorMessage = err.Error()
 	}
 	if errorMessage == "" {
-		errorMessage = errUnauthorized
+		errorMessage = errBadRequest
 	}
 	s.Logger.ErrorlnWithRequestId(ctx.UserContext(), errorMessage)
 

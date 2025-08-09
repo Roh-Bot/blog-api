@@ -8,6 +8,7 @@ import (
 	"github.com/Roh-Bot/blog-api/internal/database"
 	servicesv1 "github.com/Roh-Bot/blog-api/internal/services"
 	"github.com/Roh-Bot/blog-api/internal/store"
+	"github.com/Roh-Bot/blog-api/internal/store/cache"
 	"github.com/Roh-Bot/blog-api/internal/validator"
 	"github.com/Roh-Bot/blog-api/pkg/global"
 	"github.com/Roh-Bot/blog-api/pkg/logger"
@@ -61,17 +62,25 @@ func main() {
 		}
 	}()
 
-	// Connecting to database
-	db, err := database.New(cfg.Get().Database)
+	// Connecting to master database
+	db, err := database.NewMasterConnection(cfg.Get().Database)
+	if err != nil {
+		log.Fatal(err)
+	}
+	//Flushing database connection pool
+	defer db.Flush()
+
+	// Connection to cache database
+	dbCache, err := database.NewCache(cfg)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	//Flushing database connection pool
-	defer database.Flush()
-
 	// Initializing storage layer
 	newStore := store.NewStorage(db, cfg)
+
+	// Initializing cache layer
+	newCache := cache.NewCache(dbCache, cfg)
 
 	// Initializing Authenticators
 	jwt := auth.NewJWTAuthenticator(cfg, newStore)
@@ -83,7 +92,7 @@ func main() {
 	auth2 := auth.NewAuthentication(jwt, aes)
 
 	// Initializing Service layer
-	services := servicesv1.NewService(newLogger, cfg, auth2, newStore)
+	services := servicesv1.NewService(cfg, auth2, newStore, newCache, newLogger)
 
 	// Initializing validator
 	validator2 := validator.NewValidator()

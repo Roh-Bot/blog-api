@@ -36,7 +36,7 @@ func (m *MockAuthService) ValidateToken(token string) (bool, error) {
 }
 
 func setupAuthTestServer(auth services.IAuth) *fiber.App {
-	mockService := &services.Service{
+	mockService := services.Service{
 		Auth: auth,
 	}
 

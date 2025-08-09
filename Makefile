@@ -1,4 +1,4 @@
-.PHONY: all deps build run debug image container stop-container compose db-migrate-up db-migrate-down swag-gen test test-cover
+.PHONY: all deps build run debug image container stop-container compose db-migrate-up db-migrate-down swag-gen test test-cover cp
 
 image_version=1.0.0
 image_name=go-clean:$(image_version)
@@ -67,3 +67,5 @@ test:
 test-cover:
 	go test ./... -coverprofile=coverage.out && go tool cover -html=coverage.out
 
+cp:
+	copy .\internal\config\config.yaml .\bin

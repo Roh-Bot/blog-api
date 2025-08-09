@@ -36,7 +36,7 @@ func (m *MockJWT) ValidateToken(token string) (bool, error) {
 
 func TestAuthService_IsValid(t *testing.T) {
 	config, _ := config2.LoadConfiguration(context.Background())
-	service := &AuthService{config: config}
+	service := AuthService{config: config}
 
 	assert.True(t, service.IsValid("devadiga.rohit"))
 	assert.False(t, service.IsValid("invalid"))
@@ -52,7 +52,7 @@ func TestAuthService_GenerateToken_Success(t *testing.T) {
 	mockJwt := &MockJWT{
 		Token: "mockToken",
 	}
-	mockAuth := &auth.Authentication{
+	mockAuth := auth.Authentication{
 		JWT:        mockJwt,
 		Encryption: mockEncrytion,
 	}
@@ -76,7 +76,7 @@ func TestAuthService_GenerateToken_EncryptionError(t *testing.T) {
 	mockJwt := &MockJWT{
 		Token: "mockToken",
 	}
-	mockAuth := &auth.Authentication{
+	mockAuth := auth.Authentication{
 		JWT:        mockJwt,
 		Encryption: mockEncrytion,
 	}
@@ -100,7 +100,7 @@ func TestAuthService_GenerateToken_JWTError(t *testing.T) {
 	mockJwt := &MockJWT{
 		TokenErr: errors.New("failed to generate token"),
 	}
-	mockAuth := &auth.Authentication{
+	mockAuth := auth.Authentication{
 		JWT:        mockJwt,
 		Encryption: mockEncrytion,
 	}
@@ -124,7 +124,7 @@ func TestAuthService_ValidateToken(t *testing.T) {
 	mockJwt := &MockJWT{
 		Valid: true,
 	}
-	mockAuth := &auth.Authentication{
+	mockAuth := auth.Authentication{
 		JWT:        mockJwt,
 		Encryption: mockEncrytion,
 	}
@@ -148,7 +148,7 @@ func TestAuthService_ValidateToken_Error(t *testing.T) {
 	mockJwt := &MockJWT{
 		ValidateErr: errors.New("failed to generate token"),
 	}
-	mockAuth := &auth.Authentication{
+	mockAuth := auth.Authentication{
 		JWT:        mockJwt,
 		Encryption: mockEncrytion,
 	}

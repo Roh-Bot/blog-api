@@ -3,7 +3,9 @@ package services
 import (
 	"context"
 	"errors"
+	"github.com/Roh-Bot/blog-api/internal/entity"
 	"github.com/Roh-Bot/blog-api/internal/store"
+	"github.com/Roh-Bot/blog-api/pkg/utils"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -11,7 +13,7 @@ import (
 type MockBlogsStore struct {
 	AddPostError    error
 	GetPostsError   error
-	GetPostsData    []store.Post
+	GetPostsData    []entity.Post
 	UpdatePostError error
 	DeletePostError error
 }
@@ -20,7 +22,7 @@ func (m *MockBlogsStore) AddPost(ctx context.Context, param *store.AddPostQueryP
 	return m.AddPostError
 }
 
-func (m *MockBlogsStore) GetPosts(ctx context.Context, postParam *store.GetPostsQueryParams) ([]store.Post, error) {
+func (m *MockBlogsStore) GetPosts(ctx context.Context, postParam *store.GetPostsQueryParams) ([]entity.Post, error) {
 	return m.GetPostsData, m.GetPostsError
 }
 
@@ -48,10 +50,10 @@ func TestGetPosts_EmptyDataSuccess(t *testing.T) {
 }
 
 func TestGetPosts_WithDataSuccess(t *testing.T) {
-	mockStore := &MockBlogsStore{GetPostsData: []store.Post{{Id: 1}}}
+	mockStore := &MockBlogsStore{GetPostsData: []entity.Post{{Id: 1}}}
 	service := newMockBlogService(mockStore)
 
-	posts, err := service.GetPosts(context.Background(), &GetPostsDto{Id: ptr(1)})
+	posts, err := service.GetPosts(context.Background(), &GetPostsDto{Id: utils.Ptr(1)})
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(posts))
 	assert.Equal(t, 1, posts[0].Id)
@@ -61,7 +63,7 @@ func TestGetPosts_Error(t *testing.T) {
 	mockStore := &MockBlogsStore{GetPostsError: errors.New("an error occurred")}
 	service := newMockBlogService(mockStore)
 
-	_, err := service.GetPosts(context.Background(), &GetPostsDto{Id: ptr(1)})
+	_, err := service.GetPosts(context.Background(), &GetPostsDto{Id: utils.Ptr(1)})
 	assert.Error(t, err)
 }
 
@@ -70,13 +72,13 @@ func TestAddPosts_Success(t *testing.T) {
 	service := newMockBlogService(mockStore)
 
 	err := service.AddPost(context.Background(), &AddPostDto{
-		Title:       ptr("Title"),
-		Description: ptr("Desc"),
-		Slug:        ptr("slug"),
-		Content:     ptr("content"),
-		AuthorName:  ptr("author"),
+		Title:       utils.Ptr("Title"),
+		Description: utils.Ptr("Desc"),
+		Slug:        utils.Ptr("slug"),
+		Content:     utils.Ptr("content"),
+		AuthorName:  utils.Ptr("author"),
 		Tags:        &[]string{"go", "test"},
-		IsPublished: ptr(true),
+		IsPublished: utils.Ptr(true),
 	})
 
 	assert.NoError(t, err)
@@ -87,7 +89,7 @@ func TestAddPosts_Error(t *testing.T) {
 	service := newMockBlogService(mockStore)
 
 	err := service.AddPost(context.Background(), &AddPostDto{
-		Title: ptr("Title"),
+		Title: utils.Ptr("Title"),
 	})
 
 	assert.Error(t, err)
@@ -100,7 +102,7 @@ func TestUpdatePosts_Success(t *testing.T) {
 
 	err := service.UpdatePost(context.Background(), &UpdatePostDto{
 		Id:    1,
-		Title: ptr("Updated"),
+		Title: utils.Ptr("Updated"),
 	})
 
 	assert.NoError(t, err)
@@ -135,8 +137,4 @@ func TestDeletePosts_Error(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.EqualError(t, err, "delete failed")
-}
-
-func ptr[T any](v T) *T {
-	return &v
 }

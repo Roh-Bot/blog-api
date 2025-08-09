@@ -18,8 +18,8 @@ type Encryption interface {
 	Encrypt(data string) ([]byte, error)
 }
 
-func NewAuthentication(jwt2 *JWT, aes2 *AES) *Authentication {
-	return &Authentication{
+func NewAuthentication(jwt2 *JWT, aes2 *AES) Authentication {
+	return Authentication{
 		JWT:        jwt2,
 		Encryption: aes2,
 	}

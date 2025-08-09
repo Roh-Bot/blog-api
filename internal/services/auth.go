@@ -3,6 +3,7 @@ package services
 import (
 	"github.com/Roh-Bot/blog-api/internal/auth"
 	"github.com/Roh-Bot/blog-api/internal/config"
+	"github.com/Roh-Bot/blog-api/internal/store/cache"
 	"github.com/Roh-Bot/blog-api/pkg/logger"
 	"github.com/golang-jwt/jwt/v5"
 	"slices"
@@ -13,7 +14,8 @@ import (
 type AuthService struct {
 	config *config.AtomicConfig
 	logger logger.Logger
-	auth   *auth.Authentication
+	cache  cache.Cache
+	auth   auth.Authentication
 }
 
 func (a *AuthService) GenerateToken(userId string) (token string, err error) {

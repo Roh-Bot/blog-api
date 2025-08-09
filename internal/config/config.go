@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync/atomic"
+	"time"
 )
 
 type AtomicConfig struct {
@@ -28,6 +29,7 @@ type Config struct {
 	Server   Server   `koanf:"Server"`
 	Auth     Auth     `koanf:"Auth"`
 	Database Database `koanf:"Database"`
+	Cache    Cache    `koanf:"Cache"`
 	Logger   Logger   `koanf:"Logger"`
 }
 
@@ -47,15 +49,34 @@ type Auth struct {
 }
 
 type Database struct {
-	Host                  string `koanf:"host"`
-	Port                  string `koanf:"port"`
-	User                  string `koanf:"user"`
-	Password              string `koanf:"password"`
-	Database              string `koanf:"database"`
-	SSLMode               string `koanf:"ssl_mode"`
-	MaxConnections        int32  `koanf:"max_connections"`
-	MaxConnectionIdleTime int32  `koanf:"max_connection_idle_time"`
-	MaxConnectionLifetime int32  `koanf:"max_connection_lifetime"`
+	Host                  string        `koanf:"host"`
+	Port                  string        `koanf:"port"`
+	User                  string        `koanf:"user"`
+	Password              string        `koanf:"password"`
+	Database              string        `koanf:"database"`
+	SSLMode               string        `koanf:"ssl_mode"`
+	MaxConnectionIdleTime time.Duration `koanf:"max_connection_idle_time"`
+	MaxConnectionLifetime time.Duration `koanf:"max_connection_lifetime"`
+}
+type Cache struct {
+	Host            string        `koanf:"host"`
+	Protocol        int           `koanf:"protocol"`
+	Port            int           `koanf:"port"`
+	User            string        `koanf:"user"`
+	Password        string        `koanf:"password"`
+	Db              int           `koanf:"db"`
+	MaxRetries      int           `koanf:"max_retries"`
+	MinRetryBackoff time.Duration `koanf:"min_retry_backoff"`
+	MaxRetryBackoff time.Duration `koanf:"max_retry_backoff"`
+	DialTimeout     time.Duration `koanf:"dial_timeout"`
+	ReadTimeout     time.Duration `koanf:"read_timeout"`
+	WriteTimeout    time.Duration `koanf:"write_timeout"`
+	PoolFifo        bool          `koanf:"pool_fifo"`
+	PoolSize        int           `koanf:"pool_size"`
+	PoolTimeout     time.Duration `koanf:"pool_timeout"`
+	MinIdleConns    int           `koanf:"min_idle_conns"`
+	ConnMaxIdleTime time.Duration `koanf:"conn_max_idle_time"`
+	ConnMaxLifetime time.Duration `koanf:"conn_max_lifetime"`
 }
 
 type Logger struct {
@@ -133,8 +154,8 @@ func reloader(ctx context.Context, f *file.File, ac *AtomicConfig) {
 }
 
 func unmarshalIntoStruct(k *koanf.Koanf) (*Config, error) {
-	c := new(Config)
-	if err := k.UnmarshalWithConf("", c, koanf.UnmarshalConf{Tag: "koanf"}); err != nil {
+	c := &Config{}
+	if err := k.Unmarshal("", c); err != nil {
 		log.Fatalf("error unmarshaling config: %v", err)
 		return nil, err
 	}

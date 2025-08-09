@@ -3,10 +3,10 @@ package store
 import (
 	"context"
 	"github.com/Roh-Bot/blog-api/internal/config"
+	"github.com/Roh-Bot/blog-api/internal/database"
+	"github.com/Roh-Bot/blog-api/internal/entity"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/pkg/errors"
-	"time"
 )
 
 const (
@@ -20,20 +20,8 @@ var (
 )
 
 type BlogStore struct {
-	db     *pgxpool.Pool
+	db     *database.Database
 	config *config.AtomicConfig
-}
-
-// Post is a data model for users table
-type Post struct {
-	Id          int
-	Title       string
-	Description string
-	Slug        string
-	Content     string
-	AuthorName  string
-	Tags        []string
-	PublishedAt time.Time
 }
 
 type GetPostsQueryParams struct {
@@ -80,16 +68,16 @@ func (u *BlogStore) AddPost(ctx context.Context, postParam *AddPostQueryParam) e
 	return nil
 }
 
-func (u *BlogStore) GetPosts(ctx context.Context, postParam *GetPostsQueryParams) ([]Post, error) {
+func (u *BlogStore) GetPosts(ctx context.Context, postParam *GetPostsQueryParams) ([]entity.Post, error) {
 	rows, err := u.db.Query(ctx,
 		`SELECT * FROM posts_get($1)`, postParam.Id)
 	if err != nil {
 		return nil, err
 	}
 
-	var posts []Post
+	var posts []entity.Post
 	for rows.Next() {
-		post := Post{}
+		post := entity.Post{}
 		if err := rows.Scan(
 			&post.Id, &post.Title, &post.Description, &post.Slug, &post.Content,
 			&post.AuthorName, &post.Tags, &post.PublishedAt); err != nil {

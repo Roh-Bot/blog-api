@@ -1,7 +1,8 @@
 package api
 
 import (
-	"github.com/gofiber/fiber/v2"
+	"github.com/labstack/echo/v4"
+	"net/http"
 )
 
 const (
@@ -21,104 +22,92 @@ type Response struct {
 
 	// Error message
 	// example: Something went wrong
-	Error string `json:"Error"`
+	Error string `json:"Error,omitempty"`
 
 	// Data actual response data
 	// example: Success
-	Data any `json:"Data"`
+	Data any `json:"Data,omitempty"`
 }
 
-func (s *Server) writeResponse(ctx *fiber.Ctx, data any) error {
-	if data == nil {
-		return ctx.Status(fiber.StatusOK).JSON(Response{
-			Status: 1,
-			Data:   success,
-		})
-	}
-	return ctx.Status(fiber.StatusOK).JSON(Response{
+func (s *Server) writeResponse(ctx echo.Context, data any) error {
+	return ctx.JSON(http.StatusOK, Response{
 		Status: 1,
 		Data:   data,
 	})
 }
 
-func (s *Server) writeResponseWithStatusCode(ctx *fiber.Ctx, statusCode int, data any) error {
-	if data == nil {
-		return ctx.Status(statusCode).JSON(Response{
-			Status: 1,
-			Data:   success,
-		})
-	}
-	return ctx.Status(fiber.StatusOK).JSON(Response{
+func (s *Server) writeResponseWithStatusCode(ctx echo.Context, statusCode int, data any) error {
+	return ctx.JSON(statusCode, Response{
 		Status: 1,
 		Data:   data,
 	})
 }
 
-func (s *Server) writeErrorResponse(ctx *fiber.Ctx, statusCode int, error string) error {
-	return ctx.Status(statusCode).JSON(Response{
+func (s *Server) writeErrorResponse(ctx echo.Context, statusCode int, error string) error {
+	return ctx.JSON(statusCode, Response{
 		Status: -1,
 		Error:  error,
 	})
 }
 
-func (s *Server) internalServerError(ctx *fiber.Ctx, err error, errorMessage string) error {
+func (s *Server) internalServerError(ctx echo.Context, err error, errorMessage string) error {
 	if err != nil {
 		errorMessage = err.Error()
 	}
 	if errorMessage == "" {
 		errorMessage = errInternalServerError
 	}
-	s.Logger.ErrorlnWithRequestId(ctx.UserContext(), errorMessage)
+	s.Logger.ErrorlnWithRequestId(ctx.Request().Context(), errorMessage)
 
-	return s.writeErrorResponse(ctx, fiber.StatusInternalServerError, errorMessage)
+	return s.writeErrorResponse(ctx, http.StatusInternalServerError, errorMessage)
 }
 
-func (s *Server) badRequest(ctx *fiber.Ctx, err error, errorMessage string) error {
+func (s *Server) badRequest(ctx echo.Context, err error, errorMessage string) error {
 	if err != nil {
 		errorMessage = err.Error()
 	}
 	if errorMessage == "" {
 		errorMessage = errBadRequest
 	}
-	s.Logger.ErrorlnWithRequestId(ctx.UserContext(), errorMessage)
+	s.Logger.ErrorlnWithRequestId(ctx.Request().Context(), errorMessage)
 
-	return s.writeErrorResponse(ctx, fiber.StatusBadRequest, errBadRequest)
+	return s.writeErrorResponse(ctx, http.StatusBadRequest, errBadRequest)
 }
 
-func (s *Server) unauthorized(ctx *fiber.Ctx, err error, errorMessage string) error {
+func (s *Server) unauthorized(ctx echo.Context, err error, errorMessage string) error {
 	if err != nil {
 		errorMessage = err.Error()
 	}
 	if errorMessage == "" {
 		errorMessage = errUnauthorized
 	}
-	s.Logger.ErrorlnWithRequestId(ctx.UserContext(), errorMessage)
+	s.Logger.ErrorlnWithRequestId(ctx.Request().Context(), errorMessage)
 
-	return s.writeErrorResponse(ctx, fiber.StatusUnauthorized, errorMessage)
+	return s.writeErrorResponse(ctx, http.StatusUnauthorized, errorMessage)
 }
 
-func (s *Server) notFound(ctx *fiber.Ctx, errorMessage string) error {
-	s.Logger.ErrorlnWithRequestId(ctx.UserContext(), errorMessage)
-	return s.writeErrorResponse(ctx, fiber.StatusNotFound, errorMessage)
+func (s *Server) notFound(ctx echo.Context, errorMessage string) error {
+	s.Logger.ErrorlnWithRequestId(ctx.Request().Context(), errorMessage)
+	return s.writeErrorResponse(ctx, http.StatusNotFound, errorMessage)
 }
 
-func (s *Server) conflict(ctx *fiber.Ctx, errorMessage string) error {
-	s.Logger.ErrorlnWithRequestId(ctx.UserContext(), errorMessage)
-	return s.writeErrorResponse(ctx, fiber.StatusConflict, errorMessage)
+func (s *Server) conflict(ctx echo.Context, errorMessage string) error {
+	s.Logger.ErrorlnWithRequestId(ctx.Request().Context(), errorMessage)
+	return s.writeErrorResponse(ctx, http.StatusConflict, errorMessage)
 }
 
 //func (s *Server) handleServiceError(c echo.Context, err error) error {
 //	// Map service errors to appropriate HTTP status codes
 //	switch err {
-//	case services.ErrInvalidInput:
+//	case application.ErrInvalidInput:
 //		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
-//	case services.ErrUnauthorized:
+//	case application.ErrUnauthorized:
 //		return c.JSON(http.StatusUnauthorized, map[string]string{"error": err.Error()})
-//	case services.ErrForbidden:
+//	case application.ErrForbidden:
 //		return c.JSON(http.StatusForbidden, map[string]string{"error": err.Error()})
-//	case services.ErrNotFound:
+//	case application.ErrNotFound:
 //		return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
-//	case services.ErrInternalServer:
+//	case application.ErrInternalServer:
 //		fallthrough // Fallback for unknown errors
 //	default:
 //		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})

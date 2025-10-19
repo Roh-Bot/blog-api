@@ -1,4 +1,4 @@
-package services
+package application
 
 import (
 	"context"
@@ -35,9 +35,9 @@ func (m *MockBlogsStore) DeletePost(ctx context.Context, params *store.DeletePos
 	return m.DeletePostError
 }
 
-func newMockBlogService(blogsStore store.IBlogs) *BlogService {
+func newMockBlogService(blogsStore store.IBlogs) *BlogUseCase {
 	mockStore := store.Store{Blogs: blogsStore}
-	return &BlogService{store: mockStore}
+	return &BlogUseCase{store: mockStore}
 }
 
 func TestGetPosts_EmptyDataSuccess(t *testing.T) {

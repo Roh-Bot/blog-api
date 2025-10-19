@@ -1,4 +1,4 @@
-package services
+package application
 
 import (
 	"context"
@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-type BlogService struct {
+type BlogUseCase struct {
 	logger logger.Logger
 	store  store2.Store
 	cache  cache.Cache
@@ -49,7 +49,7 @@ type DeletePostDto struct {
 	Id int
 }
 
-func (b *BlogService) GetPosts(ctx context.Context, post *GetPostsDto) (posts []entity.Post, err error) {
+func (b *BlogUseCase) GetPosts(ctx context.Context, post *GetPostsDto) (posts []entity.Post, err error) {
 	// setting cache key for the post
 	cacheKey := fmt.Sprintf("blogapi:blogs:public:posts:")
 	if post.Id == nil {
@@ -91,7 +91,7 @@ func (b *BlogService) GetPosts(ctx context.Context, post *GetPostsDto) (posts []
 	return posts, nil
 }
 
-func (b *BlogService) AddPost(ctx context.Context, post *AddPostDto) error {
+func (b *BlogUseCase) AddPost(ctx context.Context, post *AddPostDto) error {
 	if err := b.store.Blogs.AddPost(ctx, &store2.AddPostQueryParam{
 		Title:       post.Title,
 		Description: post.Description,
@@ -106,7 +106,7 @@ func (b *BlogService) AddPost(ctx context.Context, post *AddPostDto) error {
 	return nil
 }
 
-func (b *BlogService) UpdatePost(ctx context.Context, post *UpdatePostDto) error {
+func (b *BlogUseCase) UpdatePost(ctx context.Context, post *UpdatePostDto) error {
 	return b.store.Blogs.UpdatePost(ctx, &store2.UpdatePostQueryParams{
 		Id:          post.Id,
 		Title:       post.Title,
@@ -119,7 +119,7 @@ func (b *BlogService) UpdatePost(ctx context.Context, post *UpdatePostDto) error
 	})
 }
 
-func (b *BlogService) DeletePost(ctx context.Context, post *DeletePostDto) error {
+func (b *BlogUseCase) DeletePost(ctx context.Context, post *DeletePostDto) error {
 	return b.store.Blogs.DeletePost(ctx, &store2.DeletePostQueryParams{
 		Id: post.Id,
 	})

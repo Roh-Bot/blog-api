@@ -3,15 +3,15 @@ package api
 import (
 	"context"
 	"errors"
+	"github.com/Roh-Bot/blog-api/internal/application"
 	"github.com/Roh-Bot/blog-api/internal/config"
-	servicesv1 "github.com/Roh-Bot/blog-api/internal/services"
 	"github.com/Roh-Bot/blog-api/pkg/global"
 	"github.com/Roh-Bot/blog-api/pkg/logger"
 	"github.com/go-playground/validator/v10"
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/cors"
-	"github.com/gofiber/fiber/v2/middleware/recover"
-	"github.com/gofiber/swagger"
+	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
+	"github.com/swaggo/echo-swagger"
+
 	"log"
 	"net/http"
 	"time"
@@ -22,23 +22,20 @@ type Server struct {
 	Config *config.AtomicConfig
 
 	//Dependencies
-	Services  servicesv1.Service
+	App       application.App
 	Validator *validator.Validate
 	Logger    logger.Logger
 	AppCtx    *global.ApplicationContext
 
 	// API Fields
-	Router *fiber.App
+	Router *echo.Echo
 }
 
-func NewServer(config *config.AtomicConfig, services servicesv1.Service, validator *validator.Validate, logger logger.Logger, appCtx *global.ApplicationContext) *Server {
+func NewServer(config *config.AtomicConfig, services application.App, validator *validator.Validate, logger logger.Logger, appCtx *global.ApplicationContext) *Server {
 	return &Server{
-		Config:   config,
-		Services: services,
-		Router: fiber.New(fiber.Config{
-			BodyLimit:                512,
-			EnableSplittingOnParsers: false,
-		}),
+		Config:    config,
+		App:       services,
+		Router:    echo.New(),
 		Validator: validator,
 		Logger:    logger,
 		AppCtx:    appCtx,
@@ -51,7 +48,7 @@ func (s *Server) Run() {
 		s.registerMiddlewares()
 		s.registerSwagger()
 		s.registerHandlers()
-		if err := s.Router.Listen(s.Config.Get().Server.Address); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		if err := s.Router.Start(s.Config.Get().Server.Address); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Fatal(err)
 		}
 	}()
@@ -68,11 +65,11 @@ func (s *Server) Run() {
 func (s *Server) Shutdown() error {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
-	return s.Router.ShutdownWithContext(ctx)
+	return s.Router.Shutdown(ctx)
 }
 
 func (s *Server) registerSwagger() {
-	s.Router.Get("/swagger/*", swagger.HandlerDefault)
+	s.Router.GET("/swagger/*", echoSwagger.WrapHandler)
 }
 
 func (s *Server) registerHandlers() {
@@ -80,28 +77,25 @@ func (s *Server) registerHandlers() {
 	apiGroup := s.Router.Group("/api")
 
 	// Apply global middlewares to the API group
-	apiGroup.Use(recover.New())
-	apiGroup.Use(s.requestLogger)
-	apiGroup.Use(s.responseLogger)
+	apiGroup.Use(s.httpLogger)
 
-	apiGroup.Get("/health", s.Health)
+	apiGroup.GET("/health", s.Health)
 
 	// Authentication routes
 	authGroup := apiGroup.Group("/authentication")
-	authGroup.Post("/login", s.authLoginUser)
+	authGroup.POST("/login", s.authLoginUser)
 
 	// Protected routes
 	protectedGroup := apiGroup.Group("")
 	protectedGroup.Use(s.validateAuth)
-	protectedGroup.Get("/blog-post", s.postsGet)
-	protectedGroup.Get("/blog-post/:id", s.postsGet)
-	protectedGroup.Post("/blog-post/:id", s.postAdd)
-	protectedGroup.Patch("/blog-post/:id", s.postUpdate)
-	protectedGroup.Delete("/blog-post/:id", s.postDelete)
+	protectedGroup.GET("/blog-post", s.postsGet)
+	protectedGroup.GET("/blog-post/:id", s.postsGet)
+	protectedGroup.POST("/blog-post/:id", s.postAdd)
+	protectedGroup.POST("/blog-post/:id", s.postUpdate)
+	protectedGroup.POST("/blog-post/:id", s.postDelete)
 }
 
 func (s *Server) registerMiddlewares() {
-	s.Router.Use(cors.New(cors.Config{
-		AllowOrigins: "",
-	}))
+	s.Router.Use(middleware.Recover())
+	s.Router.Use(middleware.CORS())
 }

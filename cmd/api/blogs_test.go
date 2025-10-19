@@ -6,11 +6,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/Roh-Bot/blog-api/internal/application"
 	"github.com/Roh-Bot/blog-api/internal/entity"
-	"github.com/Roh-Bot/blog-api/internal/services"
 	"github.com/Roh-Bot/blog-api/internal/store"
 	"github.com/Roh-Bot/blog-api/internal/validator"
-	"github.com/gofiber/fiber/v2"
+	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
 	"net/http"
 	"net/http/httptest"
@@ -30,24 +30,24 @@ type MockBlogsService struct {
 	DeletePostError error
 }
 
-func (m *MockBlogsService) AddPost(ctx context.Context, addPost *services.AddPostDto) error {
+func (m *MockBlogsService) AddPost(ctx context.Context, addPost *application.AddPostDto) error {
 	return m.AddPostError
 }
 
-func (m *MockBlogsService) GetPosts(ctx context.Context, getPosts *services.GetPostsDto) ([]entity.Post, error) {
+func (m *MockBlogsService) GetPosts(ctx context.Context, getPosts *application.GetPostsDto) ([]entity.Post, error) {
 	return m.GetPostsData, m.GetPostsError
 }
 
-func (m *MockBlogsService) UpdatePost(ctx context.Context, addPost *services.UpdatePostDto) error {
+func (m *MockBlogsService) UpdatePost(ctx context.Context, addPost *application.UpdatePostDto) error {
 	return m.UpdatePostError
 }
 
-func (m *MockBlogsService) DeletePost(ctx context.Context, addPost *services.DeletePostDto) error {
+func (m *MockBlogsService) DeletePost(ctx context.Context, addPost *application.DeletePostDto) error {
 	return m.DeletePostError
 }
 
-func setupBlogsTestServer(blogs services.IBlog) *fiber.App {
-	mockService := services.Service{
+func setupBlogsTestServer(blogs application.IBlogUseCase) *echo.Echo {
+	mockService := application.App{
 		Blog: blogs,
 		Auth: &MockAuthService{ShouldValidate: true},
 	}
@@ -55,17 +55,17 @@ func setupBlogsTestServer(blogs services.IBlog) *fiber.App {
 	validatorV10 := validator.NewValidator()
 
 	server := &Server{
-		Router:    fiber.New(),
+		Router:    echo.New(),
 		Logger:    &MockLogger{},
 		Validator: validatorV10,
-		Services:  mockService,
+		App:       mockService,
 	}
 	server.Router.Use(server.validateAuth)
-	server.Router.Get(blogUrl, server.postsGet)
-	server.Router.Get(blogUrlWithId, server.postsGet)
-	server.Router.Post(blogUrl, server.postAdd)
-	server.Router.Patch(blogUrlWithId, server.postUpdate)
-	server.Router.Delete(blogUrlWithId, server.postDelete)
+	server.Router.GET(blogUrl, server.postsGet)
+	server.Router.GET(blogUrlWithId, server.postsGet)
+	server.Router.POST(blogUrl, server.postAdd)
+	server.Router.PATCH(blogUrlWithId, server.postUpdate)
+	server.Router.DELETE(blogUrlWithId, server.postDelete)
 	return server.Router
 }
 
@@ -111,13 +111,13 @@ func TestPostAdd(t *testing.T) {
 			name:           "Success",
 			requestBody:    validBody,
 			mockService:    &MockBlogsService{},
-			expectedStatus: fiber.StatusOK,
+			expectedStatus: http.StatusOK,
 		},
 		{
 			name:           "Invalid JSON",
 			requestBody:    "invalid-json",
 			mockService:    &MockBlogsService{},
-			expectedStatus: fiber.StatusBadRequest,
+			expectedStatus: http.StatusBadRequest,
 		},
 		{
 			name: "Validation Error",
@@ -131,19 +131,19 @@ func TestPostAdd(t *testing.T) {
 				IsPublished: &sampleBool,
 			},
 			mockService:    &MockBlogsService{},
-			expectedStatus: fiber.StatusBadRequest,
+			expectedStatus: http.StatusBadRequest,
 		},
 		{
 			name:           "Slug Already Exists",
 			requestBody:    validBody,
 			mockService:    &MockBlogsService{AddPostError: store.ErrSlugAlreadyExists},
-			expectedStatus: fiber.StatusConflict,
+			expectedStatus: http.StatusConflict,
 		},
 		{
 			name:           "Internal Server Error",
 			requestBody:    validBody,
 			mockService:    &MockBlogsService{AddPostError: errors.New("fail")},
-			expectedStatus: fiber.StatusInternalServerError,
+			expectedStatus: http.StatusInternalServerError,
 		},
 	}
 
@@ -153,10 +153,11 @@ func TestPostAdd(t *testing.T) {
 
 			req := buildRequest(http.MethodPost, blogUrl, tc.requestBody)
 
-			resp, err := app.Test(req)
+			rec := httptest.NewRecorder()
 
-			assert.NoError(t, err)
-			assert.Equal(t, tc.expectedStatus, resp.StatusCode)
+			app.ServeHTTP(rec, req)
+
+			assert.Equal(t, tc.expectedStatus, rec.Code)
 		})
 	}
 }
@@ -179,39 +180,39 @@ func TestPostGet(t *testing.T) {
 			name:           "WithPostId_Success",
 			url:            fmt.Sprintf("%s/%d", blogUrl, sampleId),
 			mockService:    &MockBlogsService{GetPostsData: samplePosts},
-			expectedStatus: fiber.StatusOK,
+			expectedStatus: http.StatusOK,
 			expectData:     true,
 		},
 		{
 			name:           "WithoutPostId_Success",
 			url:            blogUrl,
 			mockService:    &MockBlogsService{GetPostsData: samplePosts},
-			expectedStatus: fiber.StatusOK,
+			expectedStatus: http.StatusOK,
 			expectData:     true,
 		},
 		{
 			name:           "BadParams",
 			url:            fmt.Sprintf("%s/%s", blogUrl, "s"), // non-int
 			mockService:    &MockBlogsService{},
-			expectedStatus: fiber.StatusBadRequest,
+			expectedStatus: http.StatusBadRequest,
 		},
 		{
 			name:           "PostDoesNotExist",
 			url:            fmt.Sprintf("%s/%d", blogUrl, sampleId),
 			mockService:    &MockBlogsService{GetPostsError: store.ErrPostDoesNotExist},
-			expectedStatus: fiber.StatusNotFound,
+			expectedStatus: http.StatusNotFound,
 		},
 		{
 			name:           "InternalError_WithoutId",
 			url:            blogUrl,
 			mockService:    &MockBlogsService{GetPostsError: errors.New("internal error")},
-			expectedStatus: fiber.StatusInternalServerError,
+			expectedStatus: http.StatusInternalServerError,
 		},
 		{
 			name:           "InternalError_WithId",
 			url:            fmt.Sprintf("%s/%d", blogUrl, sampleId),
 			mockService:    &MockBlogsService{GetPostsError: errors.New("internal error")},
-			expectedStatus: fiber.StatusInternalServerError,
+			expectedStatus: http.StatusInternalServerError,
 		},
 	}
 
@@ -221,14 +222,15 @@ func TestPostGet(t *testing.T) {
 
 			req := buildRequest(http.MethodGet, tc.url, nil)
 
-			resp, err := app.Test(req)
+			rec := httptest.NewRecorder()
 
-			assert.NoError(t, err)
-			assert.Equal(t, tc.expectedStatus, resp.StatusCode)
+			app.ServeHTTP(rec, req)
 
-			if tc.expectData && resp.StatusCode == fiber.StatusOK {
+			assert.Equal(t, tc.expectedStatus, rec.Code)
+
+			if tc.expectData && rec.Code == http.StatusOK {
 				var data GetPostsWrapperResponse
-				err := json.NewDecoder(resp.Body).Decode(&data)
+				err := json.NewDecoder(rec.Body).Decode(&data)
 				assert.NoError(t, err)
 				assert.NotEmpty(t, data.Data)
 			}
@@ -272,49 +274,49 @@ func TestPostUpdate(t *testing.T) {
 			postId:         1,
 			body:           validBody,
 			mockService:    &MockBlogsService{},
-			expectedStatus: fiber.StatusOK,
+			expectedStatus: http.StatusOK,
 		},
 		{
 			name:           "Invalid JSON Request",
 			postId:         1,
 			body:           "invalid-json-string",
 			mockService:    &MockBlogsService{},
-			expectedStatus: fiber.StatusBadRequest,
+			expectedStatus: http.StatusBadRequest,
 		},
 		{
 			name:           "Validation Error",
 			postId:         1,
 			body:           validationErrorBody,
 			mockService:    &MockBlogsService{},
-			expectedStatus: fiber.StatusBadRequest,
+			expectedStatus: http.StatusBadRequest,
 		},
 		{
 			name:           "Bad Param (non-int ID)",
 			postId:         "s",
 			body:           nil,
 			mockService:    &MockBlogsService{},
-			expectedStatus: fiber.StatusBadRequest,
+			expectedStatus: http.StatusBadRequest,
 		},
 		{
 			name:           "Post Does Not Exist",
 			postId:         1,
 			body:           validBody,
 			mockService:    &MockBlogsService{UpdatePostError: store.ErrPostDoesNotExist},
-			expectedStatus: fiber.StatusNotFound,
+			expectedStatus: http.StatusNotFound,
 		},
 		{
 			name:           "Slug Already Exists",
 			postId:         1,
 			body:           validBody,
 			mockService:    &MockBlogsService{UpdatePostError: store.ErrSlugAlreadyExists},
-			expectedStatus: fiber.StatusConflict,
+			expectedStatus: http.StatusConflict,
 		},
 		{
 			name:           "Internal Server Error",
 			postId:         1,
 			body:           validBody,
 			mockService:    &MockBlogsService{UpdatePostError: errors.New("internal")},
-			expectedStatus: fiber.StatusInternalServerError,
+			expectedStatus: http.StatusInternalServerError,
 		},
 	}
 
@@ -326,10 +328,11 @@ func TestPostUpdate(t *testing.T) {
 
 			req := buildRequest(http.MethodPatch, url, tc.body)
 
-			resp, err := app.Test(req)
+			rec := httptest.NewRecorder()
 
-			assert.NoError(t, err)
-			assert.Equal(t, tc.expectedStatus, resp.StatusCode)
+			app.ServeHTTP(rec, req)
+
+			assert.Equal(t, tc.expectedStatus, rec.Code)
 		})
 	}
 }
@@ -347,25 +350,25 @@ func TestPostDelete(t *testing.T) {
 			name:           "Success",
 			postId:         1,
 			mockService:    &MockBlogsService{},
-			expectedStatus: fiber.StatusOK,
+			expectedStatus: http.StatusOK,
 		},
 		{
 			name:           "Bad Param (non-integer ID)",
 			postId:         "s",
 			mockService:    &MockBlogsService{},
-			expectedStatus: fiber.StatusBadRequest,
+			expectedStatus: http.StatusBadRequest,
 		},
 		{
 			name:           "Post Does Not Exist",
 			postId:         1,
 			mockService:    &MockBlogsService{DeletePostError: store.ErrPostDoesNotExist},
-			expectedStatus: fiber.StatusNotFound,
+			expectedStatus: http.StatusNotFound,
 		},
 		{
 			name:           "Internal Server Error",
 			postId:         1,
 			mockService:    &MockBlogsService{DeletePostError: errors.New("internal server error")},
-			expectedStatus: fiber.StatusInternalServerError,
+			expectedStatus: http.StatusInternalServerError,
 		},
 	}
 
@@ -376,10 +379,11 @@ func TestPostDelete(t *testing.T) {
 			url := fmt.Sprintf("%s/%v", blogUrl, tc.postId)
 			req := buildRequest(http.MethodDelete, url, nil)
 
-			resp, err := app.Test(req)
+			rec := httptest.NewRecorder()
 
-			assert.NoError(t, err)
-			assert.Equal(t, tc.expectedStatus, resp.StatusCode)
+			app.ServeHTTP(rec, req)
+
+			assert.Equal(t, tc.expectedStatus, rec.Code)
 		})
 	}
 }

@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"github.com/Roh-Bot/blog-api/internal/services"
+	"github.com/Roh-Bot/blog-api/internal/application"
 	"github.com/Roh-Bot/blog-api/internal/validator"
-	"github.com/gofiber/fiber/v2"
+	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
 	"net/http"
 	"net/http/httptest"
@@ -35,22 +35,21 @@ func (m *MockAuthService) ValidateToken(token string) (bool, error) {
 	return true, nil
 }
 
-func setupAuthTestServer(auth services.IAuth) *fiber.App {
-	mockService := services.Service{
+func setupAuthTestServer(auth application.IAuthUseCase) *echo.Echo {
+	mockService := application.App{
 		Auth: auth,
 	}
 
-	validatorV10 := validator.NewValidator()
-
+	e := echo.New()
 	server := &Server{
-		Services:  mockService,
-		Validator: validatorV10,
+		App:       mockService,
+		Validator: validator.NewValidator(),
 		Logger:    &MockLogger{},
-		Router:    fiber.New(),
+		Router:    e,
 	}
 
-	server.Router.Post(authUrl, server.authLoginUser)
-	return server.Router
+	e.POST(authUrl, server.authLoginUser)
+	return e
 }
 
 func TestAuthLoginUser_Success(t *testing.T) {
@@ -67,10 +66,11 @@ func TestAuthLoginUser_Success(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, authUrl, bytes.NewReader(payload))
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := app.Test(req)
+	rec := httptest.NewRecorder()
 
-	assert.NoError(t, err)
-	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
+	app.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
 }
 
 func TestAuthLoginUser_InvalidUsername(t *testing.T) {
@@ -86,10 +86,11 @@ func TestAuthLoginUser_InvalidUsername(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, authUrl, bytes.NewReader(payload))
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := app.Test(req)
+	rec := httptest.NewRecorder()
 
-	assert.NoError(t, err)
-	assert.Equal(t, fiber.StatusUnauthorized, resp.StatusCode)
+	app.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusUnauthorized, rec.Code)
 }
 
 func TestAuthLoginUser_GenerateTokenError(t *testing.T) {
@@ -106,10 +107,11 @@ func TestAuthLoginUser_GenerateTokenError(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, authUrl, bytes.NewReader(payload))
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := app.Test(req)
+	rec := httptest.NewRecorder()
 
-	assert.NoError(t, err)
-	assert.Equal(t, fiber.StatusUnauthorized, resp.StatusCode)
+	app.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusUnauthorized, rec.Code)
 }
 
 func TestAuthLoginUser_InvalidPayload(t *testing.T) {
@@ -119,10 +121,11 @@ func TestAuthLoginUser_InvalidPayload(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, authUrl, bytes.NewReader([]byte(`invalid-json`)))
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := app.Test(req)
+	rec := httptest.NewRecorder()
 
-	assert.NoError(t, err)
-	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
+	app.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
 }
 
 func TestAuthLoginUser_ValidationFailure(t *testing.T) {
@@ -132,13 +135,14 @@ func TestAuthLoginUser_ValidationFailure(t *testing.T) {
 	body := map[string]string{
 		"Username": "",
 	}
-	payload, err := json.Marshal(body)
+	payload, _ := json.Marshal(body)
 
 	req := httptest.NewRequest(http.MethodPost, authUrl, bytes.NewReader(payload))
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := app.Test(req)
+	rec := httptest.NewRecorder()
 
-	assert.NoError(t, err)
-	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
+	app.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
 }

@@ -1,4 +1,4 @@
-package services
+package application
 
 import (
 	"github.com/Roh-Bot/blog-api/internal/auth"
@@ -11,14 +11,14 @@ import (
 	"time"
 )
 
-type AuthService struct {
+type AuthUseCase struct {
 	config *config.AtomicConfig
 	logger logger.Logger
 	cache  cache.Cache
 	auth   auth.Authentication
 }
 
-func (a *AuthService) GenerateToken(userId string) (token string, err error) {
+func (a *AuthUseCase) GenerateToken(userId string) (token string, err error) {
 	encryptedUserId, err := a.auth.Encryption.Encrypt(userId)
 	if err != nil {
 		return
@@ -43,10 +43,10 @@ func (a *AuthService) GenerateToken(userId string) (token string, err error) {
 }
 
 // IsValid is used to validate the user
-func (a *AuthService) IsValid(username string) bool {
+func (a *AuthUseCase) IsValid(username string) bool {
 	return slices.Contains(a.config.Get().Auth.ValidUsers, username)
 }
 
-func (a *AuthService) ValidateToken(token string) (bool, error) {
+func (a *AuthUseCase) ValidateToken(token string) (bool, error) {
 	return a.auth.JWT.ValidateToken(token)
 }

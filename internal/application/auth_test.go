@@ -1,4 +1,4 @@
-package services
+package application
 
 import (
 	"context"
@@ -36,7 +36,7 @@ func (m *MockJWT) ValidateToken(token string) (bool, error) {
 
 func TestAuthService_IsValid(t *testing.T) {
 	config, _ := config2.LoadConfiguration(context.Background())
-	service := AuthService{config: config}
+	service := AuthUseCase{config: config}
 
 	assert.True(t, service.IsValid("devadiga.rohit"))
 	assert.False(t, service.IsValid("invalid"))
@@ -57,7 +57,7 @@ func TestAuthService_GenerateToken_Success(t *testing.T) {
 		Encryption: mockEncrytion,
 	}
 
-	authService := &AuthService{
+	authService := &AuthUseCase{
 		auth:   mockAuth,
 		config: config,
 	}
@@ -81,7 +81,7 @@ func TestAuthService_GenerateToken_EncryptionError(t *testing.T) {
 		Encryption: mockEncrytion,
 	}
 
-	authService := &AuthService{
+	authService := &AuthUseCase{
 		auth:   mockAuth,
 		config: config,
 	}
@@ -105,7 +105,7 @@ func TestAuthService_GenerateToken_JWTError(t *testing.T) {
 		Encryption: mockEncrytion,
 	}
 
-	authService := &AuthService{
+	authService := &AuthUseCase{
 		auth:   mockAuth,
 		config: config,
 	}
@@ -129,7 +129,7 @@ func TestAuthService_ValidateToken(t *testing.T) {
 		Encryption: mockEncrytion,
 	}
 
-	authService := &AuthService{
+	authService := &AuthUseCase{
 		auth:   mockAuth,
 		config: config,
 	}
@@ -153,7 +153,7 @@ func TestAuthService_ValidateToken_Error(t *testing.T) {
 		Encryption: mockEncrytion,
 	}
 
-	authService := &AuthService{
+	authService := &AuthUseCase{
 		auth:   mockAuth,
 		config: config,
 	}

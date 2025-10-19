@@ -1,9 +1,10 @@
 package api
 
 import (
-	"github.com/gofiber/fiber/v2"
+	"github.com/labstack/echo/v4"
+	"net/http"
 )
 
-func (s *Server) Health(c *fiber.Ctx) error {
-	return c.Send(nil)
+func (s *Server) Health(ctx echo.Context) error {
+	return ctx.NoContent(http.StatusOK)
 }

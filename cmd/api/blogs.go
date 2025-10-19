@@ -2,9 +2,10 @@ package api
 
 import (
 	"errors"
-	"github.com/Roh-Bot/blog-api/internal/services"
+	"github.com/Roh-Bot/blog-api/internal/application"
 	"github.com/Roh-Bot/blog-api/internal/store"
-	"github.com/gofiber/fiber/v2"
+	"github.com/labstack/echo/v4"
+	"net/http"
 	"time"
 )
 
@@ -185,9 +186,9 @@ type (
 // @Failure 500 {object} Response "Internal server error"
 // @Security ApiKeyAuth
 // @Router /blog-post/{id} [post]
-func (s *Server) postAdd(ctx *fiber.Ctx) error {
+func (s *Server) postAdd(ctx echo.Context) error {
 	post := AddPostRequest{}
-	if err := ctx.BodyParser(&post); err != nil {
+	if err := ctx.Bind(&post); err != nil {
 		return s.badRequest(ctx, err, err.Error())
 	}
 
@@ -195,7 +196,7 @@ func (s *Server) postAdd(ctx *fiber.Ctx) error {
 		return s.badRequest(ctx, err, validationToErrorMessage(err))
 	}
 
-	postDto := &services.AddPostDto{
+	postDto := &application.AddPostDto{
 		Title:       post.Title,
 		Description: post.Description,
 		Slug:        post.Slug,
@@ -204,7 +205,7 @@ func (s *Server) postAdd(ctx *fiber.Ctx) error {
 		Tags:        post.Tags,
 		IsPublished: post.IsPublished,
 	}
-	if err := s.Services.Blog.AddPost(ctx.UserContext(), postDto); err != nil {
+	if err := s.App.Blog.AddPost(ctx.Request().Context(), postDto); err != nil {
 		if errors.Is(err, store.ErrSlugAlreadyExists) {
 			return s.conflict(ctx, err.Error())
 		}
@@ -229,13 +230,13 @@ func (s *Server) postAdd(ctx *fiber.Ctx) error {
 // @Security ApiKeyAuth
 // @Router /blog-post [get]
 // @Router /blog-post/{id} [get]
-func (s *Server) postsGet(ctx *fiber.Ctx) error {
+func (s *Server) postsGet(ctx echo.Context) error {
 	post := GetPostsRequest{}
-	if err := ctx.ParamsParser(&post); err != nil {
+	if err := ctx.Bind(&post); err != nil {
 		return s.badRequest(ctx, err, stringEmpty)
 	}
 
-	posts, err := s.Services.Blog.GetPosts(ctx.UserContext(), &services.GetPostsDto{
+	posts, err := s.App.Blog.GetPosts(ctx.Request().Context(), &application.GetPostsDto{
 		Id: post.Id,
 	})
 
@@ -245,7 +246,7 @@ func (s *Server) postsGet(ctx *fiber.Ctx) error {
 		}
 		return s.internalServerError(ctx, nil, stringEmpty)
 	}
-	return s.writeResponseWithStatusCode(ctx, fiber.StatusCreated, posts)
+	return s.writeResponseWithStatusCode(ctx, http.StatusCreated, posts)
 }
 
 // postUpdate godoc
@@ -262,14 +263,14 @@ func (s *Server) postsGet(ctx *fiber.Ctx) error {
 // @Failure 500 {object} Response "Internal server error"
 // @Security ApiKeyAuth
 // @Router /blog-post/{id} [patch]
-func (s *Server) postUpdate(ctx *fiber.Ctx) error {
+func (s *Server) postUpdate(ctx echo.Context) error {
 	postParams := UpdatePostPathParams{}
-	if err := ctx.ParamsParser(&postParams); err != nil {
+	if err := ctx.Bind(&postParams); err != nil {
 		return s.badRequest(ctx, err, stringEmpty)
 	}
 
 	postBody := &UpdatePostRequestBody{}
-	if err := ctx.BodyParser(postBody); err != nil {
+	if err := ctx.Bind(postBody); err != nil {
 		return s.badRequest(ctx, err, stringEmpty)
 	}
 
@@ -277,7 +278,7 @@ func (s *Server) postUpdate(ctx *fiber.Ctx) error {
 		return s.badRequest(ctx, err, validationToErrorMessage(err))
 	}
 
-	if err := s.Services.Blog.UpdatePost(ctx.UserContext(), &services.UpdatePostDto{
+	if err := s.App.Blog.UpdatePost(ctx.Request().Context(), &application.UpdatePostDto{
 		Id:          postParams.Id,
 		Title:       postBody.Title,
 		Description: postBody.Description,
@@ -312,14 +313,14 @@ func (s *Server) postUpdate(ctx *fiber.Ctx) error {
 // @Failure 500 {object} Response "Internal server error"
 // @Security ApiKeyAuth
 // @Router /blog-post/{id} [delete]
-func (s *Server) postDelete(ctx *fiber.Ctx) error {
+func (s *Server) postDelete(ctx echo.Context) error {
 	post := DeletePostRequest{}
 
-	if err := ctx.ParamsParser(&post); err != nil {
+	if err := ctx.Bind(&post); err != nil {
 		return s.badRequest(ctx, err, stringEmpty)
 	}
 
-	if err := s.Services.Blog.DeletePost(ctx.UserContext(), &services.DeletePostDto{
+	if err := s.App.Blog.DeletePost(ctx.Request().Context(), &application.DeletePostDto{
 		Id: post.Id,
 	}); err != nil {
 		if errors.Is(err, store.ErrPostDoesNotExist) {

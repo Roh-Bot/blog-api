@@ -20,7 +20,7 @@ build:
 	@echo "Current directory: $(CURDIR)"
 	@echo $(wildcard ./internal/config/*)
 	go build -tags 'no_clickhouse no_libsql no_mssql no_mysql no_sqlite3 no_vertica no_ydb' -o ./bin/blog-api -race ./cmd/blog-api/
-	copy .\internal\config\config.yaml .\bin
+	copy .\internal\config\config.yaml .\bin #make sure to change this command for LINUX/OSX
 	@echo "Build successful"
 
 run:

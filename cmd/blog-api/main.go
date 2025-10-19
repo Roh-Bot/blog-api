@@ -3,10 +3,10 @@ package main
 import (
 	"github.com/Roh-Bot/blog-api/cmd/api"
 	_ "github.com/Roh-Bot/blog-api/docs"
+	servicesv1 "github.com/Roh-Bot/blog-api/internal/application"
 	"github.com/Roh-Bot/blog-api/internal/auth"
 	"github.com/Roh-Bot/blog-api/internal/config"
 	"github.com/Roh-Bot/blog-api/internal/database"
-	servicesv1 "github.com/Roh-Bot/blog-api/internal/services"
 	"github.com/Roh-Bot/blog-api/internal/store"
 	"github.com/Roh-Bot/blog-api/internal/store/cache"
 	"github.com/Roh-Bot/blog-api/internal/validator"
@@ -39,7 +39,7 @@ func main() {
 	//Parsing global flags
 	global.ParseFlags()
 
-	//Initializing Application Context
+	//Initializing App Context
 	appCtx := global.NewApplicationContext()
 
 	//Loading configuration
@@ -91,7 +91,7 @@ func main() {
 
 	auth2 := auth.NewAuthentication(jwt, aes)
 
-	// Initializing Service layer
+	// Initializing App layer
 	services := servicesv1.NewService(cfg, auth2, newStore, newCache, newLogger)
 
 	// Initializing validator

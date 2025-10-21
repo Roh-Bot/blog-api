@@ -10,6 +10,7 @@ import (
 	"github.com/Roh-Bot/blog-api/internal/entity"
 	"github.com/Roh-Bot/blog-api/internal/store"
 	"github.com/Roh-Bot/blog-api/internal/validator"
+	"github.com/Roh-Bot/blog-api/pkg/logger"
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
 	"net/http"
@@ -56,7 +57,7 @@ func setupBlogsTestServer(blogs application.IBlogUseCase) *echo.Echo {
 
 	server := &Server{
 		Router:    echo.New(),
-		Logger:    &MockLogger{},
+		Logger:    &logger.MockLogger{},
 		Validator: validatorV10,
 		App:       mockService,
 	}

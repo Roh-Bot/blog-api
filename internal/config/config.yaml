@@ -4,8 +4,12 @@ Server:
 
 Logger:
   level: "info"
-  is_development: true
-  filepath: "./logs/logs_%Y%m%d%H%M.txt"
+  enable_stdout: true
+
+  # Expecting 100k requests/sec on the API with upto 5 logs entries per API call
+  buffer_size: 200000
+  batch_size: 10000
+  flush_delay: 30ms
 
 Auth:
   secret: "RWAjFqBWioBhkRvTDJDfuyJO7lONAET3onIz6wSWwaY="

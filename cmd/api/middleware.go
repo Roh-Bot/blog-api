@@ -31,7 +31,7 @@ func (s *Server) validateAuth(next echo.HandlerFunc) echo.HandlerFunc {
 		isValid, err := s.App.Auth.ValidateToken(token)
 
 		if err != nil || !isValid {
-			s.Logger.ErrorlnWithRequestId(ctx.Request().Context(), err)
+			s.Logger.Error(ctx.Request().Context(), err.Error(), nil)
 			if errors.Is(err, auth.ErrTokenExpired) {
 				return s.unauthorized(ctx, err, auth.ErrTokenExpired.Error())
 			}
@@ -90,9 +90,9 @@ func (s *Server) httpLogger(next echo.HandlerFunc) echo.HandlerFunc {
 
 		if err != nil {
 			logEntry["error"] = err.Error()
-			s.Logger.ErrorlnWithRequestId(ctxUser, toJSON(logEntry))
+			s.Logger.Error(ctxUser, toJSON(logEntry), nil)
 		} else {
-			s.Logger.InfolnWithRequestId(ctxUser, toJSON(logEntry))
+			s.Logger.Info(ctxUser, toJSON(logEntry), nil)
 		}
 
 		return err
@@ -148,9 +148,9 @@ func (s *Server) httpLoggerStream(next echo.HandlerFunc) echo.HandlerFunc {
 
 		if err != nil {
 			logEntry["error"] = err.Error()
-			s.Logger.ErrorlnWithRequestId(ctxUser, toJSON(logEntry))
+			s.Logger.Error(ctxUser, toJSON(logEntry), nil)
 		} else {
-			s.Logger.InfolnWithRequestId(ctxUser, toJSON(logEntry))
+			s.Logger.Info(ctxUser, toJSON(logEntry), nil)
 		}
 
 		return err

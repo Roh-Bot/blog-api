@@ -80,9 +80,12 @@ type Cache struct {
 }
 
 type Logger struct {
-	Level         string `koanf:"level"`
-	FilePath      string `koanf:"filepath"`
-	IsDevelopment bool   `koanf:"is_development"`
+	Level        string        `koanf:"level"`
+	FilePath     string        `koanf:"filepath"`
+	EnableStdout bool          `koanf:"enable_stdout"`
+	BufferSize   int           `koanf:"buffer_size"`
+	BatchSize    int           `koanf:"batch_size"`
+	FlushDelay   time.Duration `koanf:"flush_delay"`
 }
 
 func LoadConfiguration(ctx context.Context) (*AtomicConfig, error) {

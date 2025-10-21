@@ -10,7 +10,6 @@ const (
 	errInternalServerError = "Internal Server Error"
 	errUnauthorized        = "Unauthorized"
 	stringEmpty            = ""
-	success                = "Success"
 )
 
 // Response represents a standard response model
@@ -57,7 +56,7 @@ func (s *Server) internalServerError(ctx echo.Context, err error, errorMessage s
 	if errorMessage == "" {
 		errorMessage = errInternalServerError
 	}
-	s.Logger.ErrorlnWithRequestId(ctx.Request().Context(), errorMessage)
+	s.Logger.Error(ctx.Request().Context(), errorMessage, nil)
 
 	return s.writeErrorResponse(ctx, http.StatusInternalServerError, errorMessage)
 }
@@ -69,8 +68,6 @@ func (s *Server) badRequest(ctx echo.Context, err error, errorMessage string) er
 	if errorMessage == "" {
 		errorMessage = errBadRequest
 	}
-	s.Logger.ErrorlnWithRequestId(ctx.Request().Context(), errorMessage)
-
 	return s.writeErrorResponse(ctx, http.StatusBadRequest, errBadRequest)
 }
 
@@ -81,18 +78,15 @@ func (s *Server) unauthorized(ctx echo.Context, err error, errorMessage string) 
 	if errorMessage == "" {
 		errorMessage = errUnauthorized
 	}
-	s.Logger.ErrorlnWithRequestId(ctx.Request().Context(), errorMessage)
 
 	return s.writeErrorResponse(ctx, http.StatusUnauthorized, errorMessage)
 }
 
 func (s *Server) notFound(ctx echo.Context, errorMessage string) error {
-	s.Logger.ErrorlnWithRequestId(ctx.Request().Context(), errorMessage)
 	return s.writeErrorResponse(ctx, http.StatusNotFound, errorMessage)
 }
 
 func (s *Server) conflict(ctx echo.Context, errorMessage string) error {
-	s.Logger.ErrorlnWithRequestId(ctx.Request().Context(), errorMessage)
 	return s.writeErrorResponse(ctx, http.StatusConflict, errorMessage)
 }
 

@@ -45,19 +45,21 @@ func main() {
 	//Loading configuration
 	cfg, err := config.LoadConfiguration(appCtx.Context())
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
+		return
 	}
 
 	//Initializing logger
 	newLogger, err := logger.ZapNew(cfg.Get().Logger)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
+		return
 	}
 	// Flushing the logger
 	defer func() {
-		err := newLogger.Sync()
+		err := newLogger.Flush()
 		if err != nil {
-			log.Fatal(err)
+			log.Println(err)
 			return
 		}
 	}()
@@ -65,7 +67,8 @@ func main() {
 	// Connecting to master database
 	db, err := database.NewMasterConnection(cfg.Get().Database)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
+		return
 	}
 	//Flushing database connection pool
 	defer db.Flush()
@@ -73,7 +76,8 @@ func main() {
 	// Connection to cache database
 	dbCache, err := database.NewCache(cfg)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
+		return
 	}
 
 	// Initializing storage layer
@@ -86,7 +90,8 @@ func main() {
 	jwt := auth.NewJWTAuthenticator(cfg, newStore)
 	aes, err := auth.NewAES(cfg.Get().Auth.EncryptionKey)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
+		return
 	}
 
 	auth2 := auth.NewAuthentication(jwt, aes)

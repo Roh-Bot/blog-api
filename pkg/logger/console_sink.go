@@ -18,7 +18,7 @@ func (mws WrappedWriteSyncer) Sync() error {
 	return nil
 }
 
-func ConsoleSink() WrappedWriteSyncer {
+func StdoutSink() WrappedWriteSyncer {
 	// Prepare WriteSyncer
 	return WrappedWriteSyncer{os.Stdout}
 }

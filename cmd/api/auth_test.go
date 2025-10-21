@@ -6,6 +6,7 @@ import (
 	"errors"
 	"github.com/Roh-Bot/blog-api/internal/application"
 	"github.com/Roh-Bot/blog-api/internal/validator"
+	"github.com/Roh-Bot/blog-api/pkg/logger"
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
 	"net/http"
@@ -44,7 +45,7 @@ func setupAuthTestServer(auth application.IAuthUseCase) *echo.Echo {
 	server := &Server{
 		App:       mockService,
 		Validator: validator.NewValidator(),
-		Logger:    &MockLogger{},
+		Logger:    &logger.MockLogger{},
 		Router:    e,
 	}
 

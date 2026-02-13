@@ -1,8 +1,9 @@
 package api
 
 import (
-	"github.com/labstack/echo/v4"
 	"net/http"
+
+	"github.com/labstack/echo/v4"
 )
 
 const (
@@ -56,7 +57,7 @@ func (s *Server) internalServerError(ctx echo.Context, err error, errorMessage s
 	if errorMessage == "" {
 		errorMessage = errInternalServerError
 	}
-	s.Logger.Error(ctx.Request().Context(), errorMessage, nil)
+	s.Logger.Error(ctx.Request().Context(), errorMessage)
 
 	return s.writeErrorResponse(ctx, http.StatusInternalServerError, errorMessage)
 }

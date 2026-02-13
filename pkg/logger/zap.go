@@ -14,26 +14,33 @@ const RequestIDKey = "request_id"
 
 type AsyncZapLogger struct {
 	logger     *zap.Logger
-	queue      chan map[string]any
+	queue      chan logEntry
 	quit       chan struct{}
 	dropped    uint64
 	batchSize  int
 	flushDelay time.Duration
 }
 
+type logEntry struct {
+	level  zapcore.Level
+	msg    string
+	fields []zap.Field
+	ctx    context.Context
+}
+
 // NewAsyncZapLogger creates a non-blocking, async Zap logger.
 func ZapNew(cfg config.Logger, cores ...zapcore.Core) (*AsyncZapLogger, error) {
-	var tee zapcore.Core
-
-	if cfg.EnableStdout {
-		stdoutCore := NewZapCore(StdoutSink(), cfg.Level)
-		tee = zapcore.NewTee(append([]zapcore.Core{stdoutCore}, cores...)...)
-	} else {
-		tee = zapcore.NewTee(cores...)
+	//Wrapping stdout core in buffered sink for bulk writes to stdout
+	bufferedSink := &zapcore.BufferedWriteSyncer{
+		WS:            StdoutSink(),
+		Size:          256 * 1024,
+		FlushInterval: time.Second * 2,
 	}
 
+	stdoutCore := NewZapCore(bufferedSink, cfg.Level)
+
 	z := zap.New(
-		tee,
+		stdoutCore,
 		zap.AddCaller(),
 		zap.AddCallerSkip(1),
 		zap.AddStacktrace(zapcore.ErrorLevel),
@@ -41,7 +48,7 @@ func ZapNew(cfg config.Logger, cores ...zapcore.Core) (*AsyncZapLogger, error) {
 
 	l := &AsyncZapLogger{
 		logger:     z,
-		queue:      make(chan map[string]any, cfg.BufferSize),
+		queue:      make(chan logEntry, cfg.BufferSize),
 		quit:       make(chan struct{}),
 		batchSize:  cfg.BatchSize,  // configurable for high throughput
 		flushDelay: cfg.FlushDelay, // flush interval for batching
@@ -108,7 +115,7 @@ func (l *AsyncZapLogger) worker() {
 	ticker := time.NewTicker(l.flushDelay)
 	defer ticker.Stop()
 
-	var batch []map[string]any
+	batch := make([]logEntry, 0, l.batchSize)
 
 	for {
 		select {
@@ -116,7 +123,7 @@ func (l *AsyncZapLogger) worker() {
 			batch = append(batch, entry)
 			if len(batch) >= l.batchSize {
 				l.writeBatch(batch)
-				batch = nil
+				batch = batch[:0]
 			}
 
 			// Optional: log queue saturation
@@ -149,46 +156,28 @@ func (l *AsyncZapLogger) worker() {
 	}
 }
 
-func (l *AsyncZapLogger) writeBatch(batch []map[string]any) {
+func (l *AsyncZapLogger) writeBatch(batch []logEntry) {
 	for _, entry := range batch {
 		l.writeEntry(entry)
 	}
 }
 
-func (l *AsyncZapLogger) writeEntry(entry map[string]any) {
-	msg, _ := entry["message"].(string)
-	if msg == "" {
-		msg = "(empty message)"
-	}
-
-	level, _ := entry["level"].(string)
-	if level == "" {
-		level = "info"
-	}
-
-	var fields []zap.Field
-	for k, v := range entry {
-		if k == "message" || k == "level" {
-			continue
-		}
-		fields = append(fields, zap.Any(k, v))
-	}
-
-	switch level {
-	case "debug":
-		l.logger.Debug(msg, fields...)
-	case "info":
-		l.logger.Info(msg, fields...)
-	case "warn":
-		l.logger.Warn(msg, fields...)
-	case "error":
-		l.logger.Error(msg, fields...)
+func (l *AsyncZapLogger) writeEntry(entry logEntry) {
+	switch entry.level {
+	case zapcore.DebugLevel:
+		l.logger.Debug(entry.msg, entry.fields...)
+	case zapcore.InfoLevel:
+		l.logger.Info(entry.msg, entry.fields...)
+	case zapcore.WarnLevel:
+		l.logger.Warn(entry.msg, entry.fields...)
+	case zapcore.ErrorLevel:
+		l.logger.Error(entry.msg, entry.fields...)
 	default:
-		l.logger.Info(msg, fields...)
+		l.logger.Info(entry.msg, entry.fields...)
 	}
 }
 
-func (l *AsyncZapLogger) enqueue(entry map[string]any) {
+func (l *AsyncZapLogger) enqueue(entry logEntry) {
 	select {
 	case l.queue <- entry:
 	default:
@@ -198,33 +187,39 @@ func (l *AsyncZapLogger) enqueue(entry map[string]any) {
 
 // --- Public Logging API ---
 
-func (l *AsyncZapLogger) Info(ctx context.Context, msg string, fields map[string]any) {
-	l.log(ctx, "info", msg, fields)
-}
-
-func (l *AsyncZapLogger) Error(ctx context.Context, msg string, fields map[string]any) {
-	l.log(ctx, "error", msg, fields)
-}
-
-func (l *AsyncZapLogger) Warn(ctx context.Context, msg string, fields map[string]any) {
-	l.log(ctx, "warn", msg, fields)
-}
-
-func (l *AsyncZapLogger) Debug(ctx context.Context, msg string, fields map[string]any) {
-	l.log(ctx, "debug", msg, fields)
-}
-
-func (l *AsyncZapLogger) log(ctx context.Context, level, msg string, fields map[string]any) {
-	if fields == nil {
-		fields = map[string]any{}
-	}
+func (l *AsyncZapLogger) log(ctx context.Context, level zapcore.Level, msg string, fields []zap.Field) {
+	// Add RequestID without map allocation
 	if reqID, ok := ctx.Value(RequestIDKey).(string); ok {
-		fields[RequestIDKey] = reqID
+		fields = append(fields, zap.String(RequestIDKey, reqID))
 	}
-	fields["level"] = level
-	fields["message"] = msg
-	fields["timestamp"] = time.Now().Format(time.RFC3339)
-	l.enqueue(fields)
+
+	entry := logEntry{
+		level:  level,
+		msg:    msg,
+		fields: fields,
+	}
+
+	select {
+	case l.queue <- entry:
+	default:
+		atomic.AddUint64(&l.dropped, 1)
+	}
+}
+
+func (l *AsyncZapLogger) Info(ctx context.Context, msg string, fields ...zapcore.Field) {
+	l.log(ctx, zapcore.InfoLevel, msg, fields)
+}
+
+func (l *AsyncZapLogger) Error(ctx context.Context, msg string, fields ...zapcore.Field) {
+	l.log(ctx, zapcore.ErrorLevel, msg, fields)
+}
+
+func (l *AsyncZapLogger) Warn(ctx context.Context, msg string, fields ...zapcore.Field) {
+	l.log(ctx, zapcore.WarnLevel, msg, fields)
+}
+
+func (l *AsyncZapLogger) Debug(ctx context.Context, msg string, fields ...zapcore.Field) {
+	l.log(ctx, zapcore.DebugLevel, msg, fields)
 }
 
 // Flush gracefully stops the logger and flushes the remaining entries.
@@ -239,12 +234,8 @@ func (l *AsyncZapLogger) DroppedCount() uint64 {
 }
 
 // With allows you to add default fields to the logger.
-func (l *AsyncZapLogger) With(fields map[string]any) *AsyncZapLogger {
+func (l *AsyncZapLogger) With(fields ...zapcore.Field) *AsyncZapLogger {
 	newLogger := *l
-	var zapFields []zap.Field
-	for k, v := range fields {
-		zapFields = append(zapFields, zap.Any(k, v))
-	}
-	newLogger.logger = l.logger.With(zapFields...)
+	newLogger.logger = l.logger.With(fields...)
 	return &newLogger
 }
